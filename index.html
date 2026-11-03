@@ -172,16 +172,19 @@ function findTeacher(id){return S.teachers.find(t=>t.id===id)}
 function findGroup(gid){for(const t of S.teachers){const g=(t.groups||[]).find(g=>g.id===gid);if(g)return{t,g}}return null}
 
 function arn(n){return Number(n||0).toLocaleString("ar-EG")}
-function subjectsOf(t){if(!t)return[];if(!Array.isArray(t.subjects)||!t.subjects.length){t.subjects=[{id:"s_"+t.id,name:t.subject||"",share:t.share||{type:"pct",value:0}}]}
-  const ss=t.subjects;(t.groups||[]).forEach(g=>{if(!g.subjectId||!ss.some(x=>x.id===g.subjectId))g.subjectId=ss[0].id});return ss}
-function subOf(t,g){const ss=subjectsOf(t);return ss.find(x=>x.id===g.subjectId)||ss[0]}
+function subjectsOf(t){if(!t)return[];
+  // legacy teacher (before subjects) -> one subject from his old subject/share; an empty list means "no subjects added yet"
+  if(!Array.isArray(t.subjects)||(!t.subjects.length&&(t.groups||[]).length))t.subjects=[{id:"s_"+t.id,name:t.subject||"",share:t.share||{type:"pct",value:0}}];
+  const ss=t.subjects;if(ss.length)(t.groups||[]).forEach(g=>{if(!g.subjectId||!ss.some(x=>x.id===g.subjectId))g.subjectId=ss[0].id});return ss}
+var NOSUB={id:"",name:"",share:{type:"pct",value:0}};
+function subOf(t,g){const ss=subjectsOf(t);return ss.find(x=>x.id===g.subjectId)||ss[0]||NOSUB}
 function subNames(t){return subjectsOf(t).map(x=>x.name).filter(Boolean).join("، ")}
 function shareOfSub(sub){const x=(sub&&sub.share)||{};return{type:x.type==="fixed"?"fixed":"pct",value:+x.value||0}}
 function shareOf(t){return shareOfSub(subjectsOf(t)[0])}
 function shareTxtS(x){if(!x.value)return "مفيش نسبة";return x.type==="fixed"?arn(x.value)+" ج على كل طالب دفع":arn(x.value)+"٪ من المحصّل"}
-function lockShareSub(t,sub,m){const L=getLock(t.id,m);if(!L)return null;const x=(L.shares&&L.shares[sub.id])||(!L.shares?L.share:null);return x?{type:x.type==="fixed"?"fixed":"pct",value:+x.value||0}:null}
+function lockShareSub(t,sub,m){const L=getLock(t.id,m);if(!L||!sub)return null;const x=(L.shares&&L.shares[sub.id])||(!L.shares?L.share:null);return x?{type:x.type==="fixed"?"fixed":"pct",value:+x.value||0}:null}
 function effShare(t,sub,m){return (m&&lockShareSub(t,sub,m))||shareOfSub(sub)}
-function shareTxt(t,m){const ss=subjectsOf(t);if(ss.length===1){const x=effShare(t,ss[0],m);return x.value?shareTxtS(x):"مفيش نسبة للسنتر"}return ss.map(x=>(x.name||"مادة")+": "+shareTxtS(effShare(t,x,m))).join(" · ")}
+function shareTxt(t,m){const ss=subjectsOf(t);if(!ss.length)return "لسه مفيش مواد";if(ss.length===1){const x=effShare(t,ss[0],m);return x.value?shareTxtS(x):"مفيش نسبة للسنتر"}return ss.map(x=>(x.name||"مادة")+": "+shareTxtS(effShare(t,x,m))).join(" · ")}
 function cutWith(x,units,collected){const c=x.type==="fixed"?Math.round(units*x.value):Math.round(collected*x.value/100);return Math.max(0,Math.min(c,collected))}
 function curMonth(){return todayISO().slice(0,7)}
 function shiftMonth(d){let[y,mo]=payMonth.split("-").map(Number);mo+=d;while(mo>12){mo-=12;y++}while(mo<1){mo+=12;y--}payMonth=y+"-"+String(mo).padStart(2,"0");teacherImg=null;render()}
@@ -211,7 +214,7 @@ function teacherMonth(t,m){const subs=subjectsOf(t).map(sub=>({sub,stu:0,paid:0,
   subs.forEach(r=>{r.center=cutWith(effShare(t,r.sub,m),r.units,r.collected)});
   const sum=k=>subs.reduce((a,r)=>a+r[k],0),collected=sum("collected"),center=sum("center");
   return{stu:sum("stu"),paid:sum("paid"),part:sum("part"),collected,center,teacher:collected-center,subs}}
-function saveShare(tid){const t=findTeacher(tid);if(!t)return;subjectsOf(t)[0].share={type:document.getElementById("shT").value,value:+document.getElementById("shV").value||0};teacherImg=null;save();render()}
+function saveShare(tid){const t=findTeacher(tid);if(!t||!subjectsOf(t).length)return;subjectsOf(t)[0].share={type:document.getElementById("shT").value,value:+document.getElementById("shV").value||0};teacherImg=null;save();render()}
 function accountsBox(t){
   const a=teacherMonth(t,payMonth),multi=a.subs.length>1;
   return `<section class="form"><div class="bar" style="justify-content:space-between"><h2>حساب الشهر</h2>
@@ -230,7 +233,7 @@ function accountsBox(t){
    Leave it as null and the app works on the device only (local mode). */
 const FIREBASE_CONFIG={apiKey:"AIzaSyB3TNutgwCeZZ0mHygE0NI8yCh9m7x6-oI",authDomain:"jimswani-centers.firebaseapp.com",projectId:"jimswani-centers",storageBucket:"jimswani-centers.firebasestorage.app",messagingSenderId:"809726548597",appId:"1:809726548597:web:986921d2087b145af3f63c"};
 const CLOUD=!!(FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey);
-const APP_VERSION="19";
+const APP_VERSION="20";
 const DEV={name:"م/ محمد جمال",phone:"01069982196"};
 let db=null, ref=null, saveTimer=null, saving=false, pending=false, offline=false, dirty=false;
 let fsdb=null, fauth=null, cuser=null, authState=CLOUD?"loading":"ready", authErr="", lastWritten={}, unsubs=[];
@@ -368,8 +371,9 @@ function viewTeacher(){
   const wd=new Date().getDay();
   return `
   <div class="top"><button class="back" onclick="go({view:'home'})" aria-label="رجوع">›</button>
-    <div class="t"><h1>${esc(t.name)}</h1><div class="sub">${esc(subNames(t))}${t.phone?` · <a class="phone" href="tel:${esc(digits(t.phone))}" dir="ltr">${esc(t.phone)}</a>`:""}</div></div><button class="btn ghost" onclick="go({view:'editTeacher',tid:'${t.id}'})">تعديل</button></div>
-  ${accountsBox(t)}
+    <div class="t"><h1>${esc(t.name)}</h1><div class="sub">${esc(subNames(t))}${t.phone?`${subNames(t)?" · ":""}<a class="phone" href="tel:${esc(digits(t.phone))}" dir="ltr">${esc(t.phone)}</a>`:""}</div></div><button class="btn ghost" onclick="go({view:'editTeacher',tid:'${t.id}'})">تعديل</button></div>
+  ${subjectsOf(t).length?accountsBox(t):""}
+  ${subjectsOf(t).length?"":`<section class="subj"><h2>أول مادة للمدرس</h2><div class="sub">ضيف المادة أو السنة الدراسية ونسبة السنتر منها، وبعدين ضيف مجاميعها جواها.</div>${subForm(t,null)}</section>`}
   ${subjectsOf(t).map(sub=>{const gs=(t.groups||[]).filter(g=>g.subjectId===sub.id),sh=shareOfSub(sub);
     return `<section class="subj"><div class="bar" style="justify-content:space-between"><div><h2>${esc(sub.name||"المجاميع")}</h2><span class="sub">نسبة السنتر: ${shareTxtS(sh)}</span></div>
       <div class="bar"><button class="btn ghost" onclick="subEdit='${sub.id}';render()">تعديل</button><button class="btn ghost" onclick="go({view:'addGroup',tid:'${t.id}',sub:'${sub.id}'})">+ مجموعة</button></div></div>
@@ -377,8 +381,8 @@ function viewTeacher(){
       <div class="list">${gs.length?gs.map(g=>{const ml=monthSt(g,payMonth),paid=ml.filter(x=>isPaid(g,x,payMonth)).length;
         return `<button class="row" onclick="openGroup('${g.id}')"><span class="m"><h3>${esc(g.name)}</h3><span class="sub">${daysTxt(g)} · الساعة ${fmtTime(g.time)}</span><br>
         <span class="sub num">${activeSt(g).length} طالب · دفع الشهر ${paid}/${ml.length}</span></span>${g.days.includes(wd)?'<span class="pill">النهاردة</span>':''}<span class="chev">‹</span></button>`}).join(""):'<div class="empty">مفيش مجاميع لسه.</div>'}</div></section>`}).join("")}
-  ${subEdit==="new"?`<section class="subj">${subForm(t,null)}</section>`:`<button class="btn ghost wide" onclick="subEdit='new';render()">+ مادة أو سنة دراسية تانية للمدرس ده</button>`}
-  ${teacherReportBox(t)}
+  ${!subjectsOf(t).length?"":subEdit==="new"?`<section class="subj">${subForm(t,null)}</section>`:`<button class="btn ghost wide" onclick="subEdit='new';render()">+ مادة أو سنة دراسية تانية للمدرس ده</button>`}
+  ${(t.groups||[]).length?teacherReportBox(t):""}
 `;
 }
 
@@ -436,11 +440,8 @@ function viewAddTeacher(){
   return `<div class="top"><button class="back" onclick="go({view:'home'})" aria-label="رجوع">›</button><div class="t"><h1>مدرس جديد</h1></div></div>
   <form class="form" onsubmit="addTeacher(event)">
     <div class="f"><label class="lbl" for="tName">الاسم</label><input id="tName" required placeholder="مستر أحمد سامي"></div>
-    <div class="f"><label class="lbl" for="tSub">المادة / السنة الدراسية</label><input id="tSub" placeholder="كيمياء — تانية ثانوي"></div>
     <div class="f"><label class="lbl" for="tPhone">رقم المدرس</label><input id="tPhone" inputmode="tel" dir="ltr" placeholder="01xxxxxxxxx"></div>
-    <div class="f"><label class="lbl" for="tShT">نسبة السنتر</label><div class="bar"><select id="tShT"><option value="pct">نسبة ٪ من المحصّل</option><option value="fixed">مبلغ ثابت على الطالب</option></select>
-      <input id="tShV" type="number" inputmode="numeric" min="0" placeholder="مثلاً 40" style="width:110px"></div></div>
-    <div class="sub">لو المدرس بيدّي أكتر من مادة أو سنة، ضيف الباقي من صفحته بعد الحفظ.</div>
+    <div class="sub">بعد الحفظ هتدخل صفحته وتضيف المواد أو السنين الدراسية اللي بيدّيها، ولكل مادة نسبة السنتر ومجاميعها.</div>
     <button class="btn">حفظ</button></form>`;
 }
 function viewAddGroup(){
@@ -928,7 +929,7 @@ function saveGroup(e){e.preventDefault();const f=findGroup(nav.gid);if(!f)return
   const nm=egName.value.trim();g.name=(!nm||autoName&&nm===g.name)?(days.map(d=>DAYS[d]).join(" و ")+" "+fmtTime(g.time)):nm;
   const es=document.getElementById("egSub");if(es&&es.value&&es.value!==g.subjectId){if(groupHasLockedMonth(g,[t])){alertBox("فيه شهر مقفول عند المدرس، افتحه الأول قبل تغيير المادة.");return}g.subjectId=es.value}
   const nt=findTeacher(egT.value);if(nt&&nt.id!==t.id&&groupHasLockedMonth(g,[t,nt])){alertBox("فيه شهر مقفول عند واحد من المدرسين، افتحه الأول قبل نقل المجموعة.");return}
-  if(nt&&nt.id!==t.id){t.groups=t.groups.filter(x=>x.id!==g.id);nt.groups=nt.groups||[];g.subjectId=subjectsOf(nt)[0].id;nt.groups.push(g)}
+  if(nt&&nt.id!==t.id){const os=subOf(t,g);t.groups=t.groups.filter(x=>x.id!==g.id);nt.groups=nt.groups||[];const ns=subjectsOf(nt);if(!ns.length)ns.push({id:uid(),name:os.name||"",share:JSON.parse(JSON.stringify(os.share||{type:"pct",value:0}))});g.subjectId=ns[0].id;nt.groups.push(g)}
   teacherImg=null;save();go({view:"group",gid:g.id})}
 
 /* ---------- undo ---------- */
@@ -1116,13 +1117,13 @@ function resetTpl(k){if(S.settings&&S.settings.tpl)delete S.settings.tpl[k];save
 
 /* ---------- subjects (a teacher's subjects / school years, each with its own share) ---------- */
 var subEdit=null;
-function subForm(t,sub){const sh=sub?shareOfSub(sub):{type:"pct",value:0},canDel=sub&&subjectsOf(t).length>1&&!(t.groups||[]).some(g=>g.subjectId===sub.id);
+function subForm(t,sub){const sh=sub?shareOfSub(sub):{type:"pct",value:0},canDel=sub&&!(t.groups||[]).some(g=>g.subjectId===sub.id);
   return `<form class="form subform" onsubmit="saveSubject(event,'${t.id}','${sub?sub.id:""}')">
     <div class="f"><label class="lbl" for="sbName">المادة / السنة الدراسية</label><input id="sbName" required value="${esc(sub?sub.name:"")}" placeholder="كيمياء — تانية ثانوي"></div>
     <div class="f"><label class="lbl" for="sbT">نسبة السنتر</label><div class="bar"><select id="sbT"><option value="pct"${sh.type==="pct"?" selected":""}>نسبة ٪ من المحصّل</option><option value="fixed"${sh.type==="fixed"?" selected":""}>مبلغ على كل طالب دفع</option></select>
       <input id="sbV" type="number" inputmode="numeric" min="0" value="${sh.value||""}" placeholder="40" style="width:100px"></div></div>
-    <div class="bar"><button class="btn">${sub?"حفظ":"إضافة"}</button><button type="button" class="btn ghost" onclick="subEdit=null;render()">إلغاء</button>${canDel?`<button type="button" class="x" onclick="delSubject('${t.id}','${sub.id}',this)">حذف المادة</button>`:""}</div>
-    ${sub&&!canDel&&subjectsOf(t).length>1?'<div class="sub">عشان تحذف المادة، انقل أو احذف مجاميعها الأول.</div>':""}</form>`}
+    <div class="bar"><button class="btn">${sub?"حفظ":"إضافة"}</button>${subjectsOf(t).length?`<button type="button" class="btn ghost" onclick="subEdit=null;render()">إلغاء</button>`:""}${canDel?`<button type="button" class="x" onclick="delSubject('${t.id}','${sub.id}',this)">حذف المادة</button>`:""}</div>
+    ${sub&&!canDel?'<div class="sub">عشان تحذف المادة، انقل أو احذف مجاميعها الأول.</div>':""}</form>`}
 function saveSubject(e,tid,sid){e.preventDefault();const t=findTeacher(tid);if(!t)return;const ss=subjectsOf(t),name=sbName.value.trim();if(!name)return;
   const share={type:sbT.value,value:Math.max(0,+sbV.value||0)};
   if(sid){const x=ss.find(q=>q.id===sid);if(x){x.name=name;x.share=share}}else ss.push({id:uid(),name,share});
@@ -1140,8 +1141,8 @@ function mergeTeachers(tid){const t=findTeacher(tid);if(!t)return;const ids=[...
   teacherImg=null;save();go({view:"teacher",tid:t.id})}
 
 /* ---------- actions ---------- */
-function addTeacher(e){e.preventDefault();const share={type:tShT.value,value:+tShV.value||0},t={id:uid(),name:tName.value.trim(),subject:tSub.value.trim(),phone:tPhone.value.trim(),share,subjects:[{id:uid(),name:tSub.value.trim(),share}],groups:[]};S.teachers.push(t);save();go({view:"teacher",tid:t.id})}
-function addGroup(e){e.preventDefault();const t=findTeacher(nav.tid);
+function addTeacher(e){e.preventDefault();const name=tName.value.trim();if(!name)return;const t={id:uid(),name,phone:tPhone.value.trim(),subjects:[],groups:[]};S.teachers.push(t);save();subEdit="new";go({view:"teacher",tid:t.id})}
+function addGroup(e){e.preventDefault();const t=findTeacher(nav.tid);if(t&&!subjectsOf(t).length){flash("ضيف مادة للمدرس الأول");go({view:"teacher",tid:t.id});return}
   const days=[...document.querySelectorAll('input[name=d]:checked')].map(i=>+i.value);
   if(!days.length){alertBox("اختار يوم واحد على الأقل");return}
   const sel=document.getElementById("gSub"),g={id:uid(),days,time:gTime.value,fee:+gFee.value||0,students:[],subjectId:(sel&&sel.value)||nav.sub||subjectsOf(t)[0].id};
