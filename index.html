@@ -21,6 +21,7 @@
 .search input{width:100%;padding:12px 14px;font-size:1rem;border-radius:12px}
 .addstu{display:grid;grid-template-columns:1fr 1fr;gap:8px}.addstu input:first-child{grid-column:1/-1}.addstu .btn{grid-column:1/-1}
 .linkish{background:none;border:0;padding:0;text-align:right;color:inherit;cursor:pointer;min-width:0;flex:1}
+.pill.okp{background:var(--ok-soft);color:var(--ok)}
 .pill.warnp{background:var(--bad-soft);color:var(--bad)}
 .kv{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-block:4px;border-bottom:1px solid var(--line)}
 .phone{color:var(--accent);font-weight:600;text-decoration:none;font-variant-numeric:tabular-nums}
@@ -47,6 +48,11 @@ details.pick summary{cursor:pointer;list-style:none}details.pick summary::-webki
 .modal{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:calc(16px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 .sheet{background:var(--card);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:10px;max-width:420px;width:100%;max-height:100%;overflow:auto}
 .sheet img{width:100%;border-radius:12px;display:block}
+.monthnav{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;margin-top:4px}
+.monthnav>button{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:1.4rem;flex:none}
+.monthnav .mn{display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0}
+.monthnav .mn b{font-family:var(--display);font-size:1.15rem}
+.linkbtn{border:0;background:none;color:var(--accent);font:inherit;font-size:.85rem;padding:0;text-decoration:underline}
 details.backup summary{display:flex;justify-content:space-between;align-items:center;cursor:pointer;list-style:none}
 details.backup summary::-webkit-details-marker{display:none}
 details.backup[open] summary{margin-bottom:8px}
@@ -149,6 +155,9 @@ function shareOf(t){const s=(t&&t.share)||{};return{type:s.type==="fixed"?"fixed
 function shareTxt(t,m){const s=(m&&lockShare(t,m))||shareOf(t);if(!s.value)return "مفيش نسبة للسنتر";return s.type==="fixed"?arn(s.value)+" ج على كل طالب دفع":arn(s.value)+"٪ من المحصّل"}
 function cutFor(t,paid,collected,m){const s=(m&&lockShare(t,m))||shareOf(t);const c=s.type==="fixed"?paid*s.value:Math.round(collected*s.value/100);return Math.max(0,Math.min(c,collected))}
 function curMonth(){return todayISO().slice(0,7)}
+function shiftMonth(d){let[y,mo]=payMonth.split("-").map(Number);mo+=d;while(mo>12){mo-=12;y++}while(mo<1){mo+=12;y--}payMonth=y+"-"+String(mo).padStart(2,"0");teacherImg=null;render()}
+document.addEventListener("touchstart",e=>{const n=e.target.closest&&e.target.closest("#monthNav");window._sw=n?{x:e.touches[0].clientX,y:e.touches[0].clientY}:null},{passive:true});
+document.addEventListener("touchend",e=>{const s0=window._sw;window._sw=null;if(!s0)return;const dx=e.changedTouches[0].clientX-s0.x,dy=e.changedTouches[0].clientY-s0.y;if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy))shiftMonth(dx>0?-1:1)},{passive:true});
 function isActive(s){return !s.left}
 function inMonth(s,m){return (!s.left||m<s.left)&&(!s.joined||m>=s.joined)}
 function activeSt(g){return (g.students||[]).filter(isActive)}
@@ -267,10 +276,10 @@ function viewAuth(){
     <button class="btn" id="lgBtn">تفعيل</button>
     <div class="sub">مش معاك الكود؟ كلّم الدعم الفني: <span dir="ltr">${esc(DEV.phone)}</span></div></form>`;
 }
-(async()=>{
+Promise.resolve().then(async()=>{ // runs after the whole script has loaded
   if(CLOUD){render();startCloud()}else{loadLocal();render()}
   if("serviceWorker" in navigator&&/^https?:/.test(location.protocol)){try{navigator.serviceWorker.register("sw.js")}catch(e){}}
-})();
+});
 
 
 /* ---------- views ---------- */
@@ -289,9 +298,9 @@ function render(){
 function viewHome(){
   const now=new Date(), wd=now.getDay();
   return `
-  <header class="brand"><img src="${LOGO}" alt="${esc(BRAND.name)} — ${esc(BRAND.latin)}"><div class="sub">النهاردة ${DAYS[wd]} · ${now.toLocaleDateString("ar-EG",{day:"numeric",month:"long"})}</div></header>
-  ${S.teachers.length?(()=>{const m=todayISO().slice(0,7);let c=0,ce=0;S.teachers.forEach(t=>{const a=teacherMonth(t,m);c+=a.collected;ce+=a.center});return `<div class="stats"><div class="stat"><b class="num">${arn(c)}</b><span class="sub">اتحصّل الشهر ده</span></div><div class="stat"><b class="num" style="color:var(--accent)">${arn(ce)}</b><span class="sub">نصيب السنتر</span></div><div class="stat"><b class="num" style="color:var(--ok)">${arn(c-ce)}</b><span class="sub">للمدرسين</span></div></div>`})():""}
-  ${S.teachers.length?(()=>{const n=unpaidList(curMonth()).length;return `<button class="row unpaidbtn" onclick="go({view:'unpaid'})"><span class="m"><h3>لسه مادفعش</h3><span class="sub">شهر ${monthName(curMonth())}</span></span><span class="pill ${n?"warnp":""}">${n?arn(n)+" طالب":"الكل دفع ✓"}</span><span class="chev">‹</span></button>`})():""}
+  <header class="brand"><img src="${LOGO}" alt="${esc(BRAND.name)} — ${esc(BRAND.latin)}"><div class="monthnav" id="monthNav"><button onclick="shiftMonth(-1)" aria-label="الشهر اللي فات">›</button><div class="mn"><b>${monthName(payMonth)}</b><span class="sub">${payMonth===curMonth()?"الشهر ده · النهاردة "+DAYS[wd]+" "+now.toLocaleDateString("ar-EG",{day:"numeric",month:"long"}):`<button class="linkbtn" onclick="payMonth=curMonth();render()">ارجع للشهر ده</button>`}</span></div><button onclick="shiftMonth(1)" aria-label="الشهر الجاي">‹</button></div></header>
+  ${S.teachers.length?(()=>{const m=payMonth;let c=0,ce=0;S.teachers.forEach(t=>{const a=teacherMonth(t,m);c+=a.collected;ce+=a.center});return `<div class="stats"><div class="stat"><b class="num">${arn(c)}</b><span class="sub">اتحصّل</span></div><div class="stat"><b class="num" style="color:var(--accent)">${arn(ce)}</b><span class="sub">نصيب السنتر</span></div><div class="stat"><b class="num" style="color:var(--ok)">${arn(c-ce)}</b><span class="sub">للمدرسين</span></div></div>`})():""}
+  ${S.teachers.length?(()=>{const n=unpaidList(payMonth).length;return `<button class="row unpaidbtn" onclick="go({view:'unpaid'})"><span class="m"><h3>لسه مادفعش</h3><span class="sub">شهر ${monthName(payMonth)}</span></span><span class="pill ${n?"warnp":"okp"}">${n?arn(n)+" طالب":"الكل دفع ✓"}</span><span class="chev">‹</span></button>`})():""}
   <div class="search"><input id="q" type="search" placeholder="🔍 دوّر على طالب بالاسم أو الرقم" value="${esc(searchQ)}" oninput="doSearch(this.value)" autocomplete="off"></div>
   <div id="searchResults">${searchHTML(searchQ)}</div>
   <div class="bar" style="justify-content:space-between"><h2>المدرسين</h2><button class="btn ghost" onclick="go({view:'addTeacher'})">+ مدرس جديد</button></div>
@@ -299,7 +308,7 @@ function viewHome(){
     ${S.teachers.length?S.teachers.map((t,i)=>`
       <button class="row" onclick="go({view:'teacher',tid:'${t.id}'})">
         <span class="avatar" style="background:${COLORS[i%COLORS.length]}">${esc((t.name.replace(/^(مستر|م\/|أ\/|ميس)\s*/,"")[0])||"؟")}</span>
-        <span class="m"><h3>${esc(t.name)}</h3><span class="sub">${esc(t.subject||"")} · ${(t.groups||[]).length} مجموعة · ${(t.groups||[]).reduce((a,g)=>a+activeSt(g).length,0)} طالب</span><br><span class="sub num">الشهر ده: للسنتر ${arn(teacherMonth(t,todayISO().slice(0,7)).center)} ج · للمدرس ${arn(teacherMonth(t,todayISO().slice(0,7)).teacher)} ج</span></span>
+        <span class="m"><h3>${esc(t.name)}</h3><span class="sub">${esc(t.subject||"")} · ${(t.groups||[]).length} مجموعة · ${(t.groups||[]).reduce((a,g)=>a+activeSt(g).length,0)} طالب</span><br><span class="sub num">${monthName(payMonth)}: للسنتر ${arn(teacherMonth(t,payMonth).center)} ج · للمدرس ${arn(teacherMonth(t,payMonth).teacher)} ج</span></span>
         <span class="chev">‹</span>
       </button>`).join(""):'<div class="empty">مفيش مدرسين لسه.</div>'}
   </div>
@@ -327,7 +336,7 @@ function viewTeacher(){
 `;
 }
 
-function openGroup(gid){tab="pay";selMode=false;selSet=new Set();pickQ="";transferMsg="";attDate=todayISO();payMonth=todayISO().slice(0,7);go({view:"group",gid})}
+function openGroup(gid){tab="pay";selMode=false;selSet=new Set();pickQ="";transferMsg="";attDate=todayISO();go({view:"group",gid})}
 
 function viewGroup(){
   const f=findGroup(nav.gid); if(!f){nav={view:"home"};return viewHome()}
@@ -400,14 +409,18 @@ function viewAddGroup(){
 var backupMsg="";
 function lastBackup(){try{return localStorage.getItem("center-lastBackup")||""}catch(e){return""}}
 function backupBox(){
-  const lb=lastBackup(),open=!!(backupImg||backupMsg);
+  const lb=lastBackup(),open=!!(backupImg||backupMsg||restorePending);
   return `<details class="form backup"${open?" open":""}><summary><b>النسخة الاحتياطية</b><span class="sub">${lb?"آخر نسخة: "+esc(lb):"لسه ما اتعملتش"}</span></summary>
     ${CLOUD?"":`<div class="sub">البيانات على الجهاز ده بس، اعمل نسخة كل أسبوع.</div>`}
     <div class="bar"><button class="btn" onclick="prepareBackup()">عمل صورة النسخة</button>
     <label class="btn ghost" for="restoreFile">استرجاع</label>
     <input type="file" id="restoreFile" accept="image/png,image/*,.json,application/json" hidden onchange="restoreBackup(this)">
-    <button class="btn ghost" onclick="copyBackup()">نسخ كنص</button></div>
+    <button class="btn ghost" onclick="copyBackup()">نسخ كنص</button><button class="btn ghost" onclick="showPaste()">استرجاع من نص</button></div>
+    <div id="pasteBox" hidden><textarea id="pasteText" placeholder="الصق النص هنا" style="width:100%;height:90px;font:12px monospace;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;direction:ltr"></textarea>
+      <button class="btn" onclick="restoreFromText()">استرجاع</button></div>
     ${backupMsg?`<div class="note">${esc(backupMsg)}</div>`:""}
+    ${restorePending?`<div class="note">النسخة دي${restoreWhen?" بتاريخ "+esc(restoreWhen):""} وفيها ${arn(restorePending.teachers.length)} مدرس. الاسترجاع هيمسح البيانات الحالية ويحط مكانها بيانات النسخة.</div>
+      <div class="bar"><button class="btn delbtn" onclick="confirmRestore()">أيوه، استرجع</button><button class="btn ghost" onclick="restorePending=null;render()">إلغاء</button></div>`:""}
     ${backupImg?`<div class="bar"><button class="btn" onclick="deliverBackup()">حفظ / مشاركة</button><button class="btn ghost" onclick="closeBackupImg()">قفل</button></div>
       <img src="${backupImg.url}" alt="صورة النسخة الاحتياطية" style="width:100%;border-radius:12px;border:1px solid var(--line)">
       <div class="sub">على الواتساب ابعتها كـ«مستند»، وماتقصّهاش.</div>`:""}
@@ -418,10 +431,10 @@ function backupJSON(){return JSON.stringify({app:"center",savedAt:new Date().toI
 function markBackup(){const d=new Date().toLocaleString("ar-EG",{day:"numeric",month:"long",hour:"numeric",minute:"2-digit"});try{localStorage.setItem("center-lastBackup",d)}catch(e){}}
 
 /* --- image backup: light report (Mr J style) in El-Mohandes 2 colors + data band (each byte = 2 nibbles, value n*16+8) --- */
-const BK_W=1080, BK_MAGIC=[69,77,50,66];
+var BK_W=1080, BK_MAGIC=[69,77,50,66];
 var backupImg=null;
 function loadImg(src){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=src})}
-const AR=n=>Number(n||0).toLocaleString("ar-EG");
+var AR=n=>Number(n||0).toLocaleString("ar-EG");
 async function buildBackupPNG(){
   const bytes=new TextEncoder().encode(backupJSON());
   let sum=0;for(let i=0;i<bytes.length;i++)sum=(sum+bytes[i]*((i%251)+1))>>>0;
@@ -662,15 +675,16 @@ async function copyBackup(){
   try{await navigator.clipboard.writeText(txt);markBackup();backupMsg="اتنسخت. الصقها في رسالة واتساب لنفسك.";render()}
   catch(e){backupMsg="النسخ التلقائي مش شغال — حدد النص اللي تحت وانسخه.";render();const t=document.getElementById("backupText");t.hidden=false;t.value=txt;t.select()}
 }
-var restorePending=null;
+function showPaste(){const b=document.getElementById("pasteBox");if(b){b.hidden=false;document.getElementById("pasteText").focus()}}
+function restoreFromText(){const t=(document.getElementById("pasteText")||{}).value||"";try{offerRestore(JSON.parse(t.trim()))}catch(e){backupMsg="النص ده مش نسخة احتياطية سليمة. اتأكد إنك لصقت النص كله.";render()}}
+var restorePending=null,restoreWhen="";
 function offerRestore(j){
   const d=j.data||j;
   if(!d||!Array.isArray(d.teachers))throw new Error("shape");
   restorePending={teachers:d.teachers,locks:d.locks||{},payouts:d.payouts||{},attendance:d.attendance||{},payments:d.payments||{}};
-  const when=j.savedAt?new Date(j.savedAt).toLocaleString("ar-EG",{day:"numeric",month:"long",hour:"numeric",minute:"2-digit"}):"";
-  backupMsg="";render();
-  document.querySelector(".form").insertAdjacentHTML("beforeend",`<div class="note">النسخة دي${when?" بتاريخ "+esc(when):""} وفيها ${restorePending.teachers.length} مدرس. الاسترجاع هيمسح البيانات الحالية ويحط مكانها بيانات النسخة.</div>
-    <div class="bar"><button class="btn" style="background:var(--bad)" onclick="confirmRestore()">أيوه، استرجع</button><button class="btn ghost" onclick="restorePending=null;render()">إلغاء</button></div>`);
+  restoreWhen=j.savedAt?new Date(j.savedAt).toLocaleString("ar-EG",{day:"numeric",month:"long",hour:"numeric",minute:"2-digit"}):"";
+  backupMsg="";if(nav.view!=="home")nav={view:"home"};render();
+  const d2=document.querySelector("details.backup");if(d2)d2.scrollIntoView({block:"center"});
 }
 async function restoreBackup(inp){
   const f=inp.files[0];inp.value="";if(!f)return;
@@ -680,7 +694,7 @@ async function restoreBackup(inp){
     else{offerRestore(JSON.parse(await f.text()))}
   }catch(e){backupMsg=/image\//.test(f.type)?"الصورة دي مش نسخة سليمة. لازم تكون صورة النسخة الأصلية من غير قص أو ضغط (لو جت من الواتساب لازم تكون اتبعتت كمستند).":"الملف ده مش نسخة احتياطية من البرنامج.";render()}
 }
-function confirmRestore(){if(!restorePending)return;S=restorePending;restorePending=null;save();backupMsg="اترجعت البيانات من النسخة.";render()}
+function confirmRestore(){if(!restorePending)return;S=restorePending;restorePending=null;ensureS();save();backupMsg="اترجعت البيانات من النسخة.";render()}
 
 
 /* ---------- student search & profile ---------- */
@@ -705,7 +719,7 @@ function doSearch(v){searchQ=v;const r=document.getElementById("searchResults");
 function openStudent(sid){const e=allEntries().find(x=>x.s.id===sid);if(e)openStudentKey(encodeURIComponent(personKey(e.s)))}
 function openStudentKey(k){go({view:"student",key:decodeURIComponent(k),back:nav})}
 function lastMonths(n){const out=[];const d=new Date();d.setDate(1);for(let i=0;i<n;i++){out.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"));d.setMonth(d.getMonth()-1)}return out}
-const MONTHS_AR=["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+var MONTHS_AR=["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 function viewStudent(){
   const es=personEntries(nav.key);
   const back=nav.back&&nav.back.view!=="student"?nav.back:{view:"home"};
