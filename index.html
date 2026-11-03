@@ -137,7 +137,7 @@ function accountsBox(t){
 /* ---------- storage ----------
    CLOUD MODE: paste the Firebase web config below to turn on accounts + online sync.
    Leave it as null and the app works on the device only (local mode). */
-const FIREBASE_CONFIG=null;
+const FIREBASE_CONFIG={apiKey:"AIzaSyB3TNutgwCeZZ0mHygE0NI8yCh9m7x6-oI",authDomain:"jimswani-centers.firebaseapp.com",projectId:"jimswani-centers",storageBucket:"jimswani-centers.firebasestorage.app",messagingSenderId:"809726548597",appId:"1:809726548597:web:986921d2087b145af3f63c"};
 const CLOUD=!!(FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey);
 const DEV={name:"م/ محمد جمال",phone:"01069982196"};
 let db=null, ref=null, saveTimer=null, saving=false, pending=false, offline=false, dirty=false;
