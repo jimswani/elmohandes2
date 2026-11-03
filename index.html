@@ -65,6 +65,8 @@ button.wa{border:0;font-family:inherit;cursor:pointer}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chipb{border:1px solid var(--line);background:var(--bg);color:var(--accent);border-radius:99px;padding:4px 10px;font-size:.8rem}
 .leftnote{border-color:var(--warn)}
+.confirming{background:#F5B700!important;color:#1a1a1a!important;border-color:#F5B700!important;box-shadow:0 0 0 3px rgba(245,183,0,.35)!important;animation:cfm .8s ease-in-out infinite alternate}
+@keyframes cfm{from{box-shadow:0 0 0 2px rgba(245,183,0,.25)}to{box-shadow:0 0 0 6px rgba(245,183,0,.55)}}
 .msgpv{margin:8px 0}.msgpv summary{cursor:pointer;color:var(--muted);font-size:.9rem;padding:6px 0}
 .preview{white-space:pre-wrap;background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:10px;font-size:.9rem;color:var(--muted)}
 .subj{display:flex;flex-direction:column;gap:10px;padding-top:6px;border-top:1px solid var(--line)}
@@ -238,7 +240,7 @@ function accountsBox(t){
    Leave it as null and the app works on the device only (local mode). */
 const FIREBASE_CONFIG={apiKey:"AIzaSyB3TNutgwCeZZ0mHygE0NI8yCh9m7x6-oI",authDomain:"jimswani-centers.firebaseapp.com",projectId:"jimswani-centers",storageBucket:"jimswani-centers.firebasestorage.app",messagingSenderId:"809726548597",appId:"1:809726548597:web:986921d2087b145af3f63c"};
 const CLOUD=!!(FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey);
-const APP_VERSION="21";
+const APP_VERSION="22";
 const DEV={name:"م/ محمد جمال",phone:"01069982196"};
 let db=null, ref=null, saveTimer=null, saving=false, pending=false, offline=false, dirty=false;
 let fsdb=null, fauth=null, cuser=null, authState=CLOUD?"loading":"ready", authErr="", lastWritten={}, unsubs=[];
@@ -1168,7 +1170,7 @@ function addGroup(e){e.preventDefault();const t=findTeacher(nav.tid);if(t&&!subj
   t.groups=t.groups||[];t.groups.push(g);save();go({view:"teacher",tid:t.id})}
 function alertBox(m){const n=document.createElement("div");n.className="note";n.textContent=m;document.querySelector(".form").prepend(n)}
 var confirmKey=null;
-function twice(key,fn,btn){if(confirmKey===key){confirmKey=null;fn()}else{confirmKey=key;btn.textContent="اضغط تاني للتأكيد";setTimeout(()=>{if(confirmKey===key){confirmKey=null;render()}},3000)}}
+function twice(key,fn,btn){if(confirmKey===key){confirmKey=null;fn()}else{confirmKey=key;btn.textContent="اضغط تاني للتأكيد";btn.classList.add("confirming");setTimeout(()=>{if(confirmKey===key){confirmKey=null;render()}},3000)}}
 var delAsk=null;
 function delTeacherHard(id){const t=findTeacher(id),v=(document.getElementById("delName")||{}).value||"";if(!t)return;if(v.trim()!==t.name.trim()){flash("الاسم مش مطابق، ماتمسحش حاجة");render();return}delAsk=null;S.teachers=S.teachers.filter(x=>x.id!==id);save();flash("اتمسح المدرس");go({view:"home"})}
 function delGroupHard(){const f=findGroup(nav.gid);if(!f)return;const v=(document.getElementById("delName")||{}).value||"";if(v.trim()!==String(f.g.name).trim()){flash("الاسم مش مطابق، ماتمسحتش");render();return}delAsk=null;f.t.groups=f.t.groups.filter(x=>x.id!==f.g.id);save();flash("اتمسحت المجموعة");go({view:"teacher",tid:f.t.id})}
