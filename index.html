@@ -64,6 +64,7 @@ button.wa{border:0;font-family:inherit;cursor:pointer}
 .tpl{width:100%;min-height:150px;font:inherit;line-height:1.7;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chipb{border:1px solid var(--line);background:var(--bg);color:var(--accent);border-radius:99px;padding:4px 10px;font-size:.8rem}
+.leftnote{border-color:var(--warn)}
 .msgpv{margin:8px 0}.msgpv summary{cursor:pointer;color:var(--muted);font-size:.9rem;padding:6px 0}
 .preview{white-space:pre-wrap;background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:10px;font-size:.9rem;color:var(--muted)}
 .subj{display:flex;flex-direction:column;gap:10px;padding-top:6px;border-top:1px solid var(--line)}
@@ -191,6 +192,10 @@ function shiftMonth(d){let[y,mo]=payMonth.split("-").map(Number);mo+=d;while(mo>
 document.addEventListener("touchstart",e=>{const n=e.target.closest&&e.target.closest("#monthNav");window._sw=n?{x:e.touches[0].clientX,y:e.touches[0].clientY}:null},{passive:true});
 document.addEventListener("touchend",e=>{const s0=window._sw;window._sw=null;if(!s0)return;const dx=e.changedTouches[0].clientX-s0.x,dy=e.changedTouches[0].clientY-s0.y;if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy))shiftMonth(dx>0?-1:1)},{passive:true});
 function isActive(s){return !s.left}
+function addMonth(m,n){let[y,mo]=m.split("-").map(Number);mo+=n;while(mo>12){mo-=12;y++}while(mo<1){mo+=12;y--}return y+"-"+String(mo).padStart(2,"0")}
+function tActive(t,m){return !t.left||m<t.left}
+function tHistory(t){if(Object.keys(S.locks||{}).some(k=>k.startsWith(t.id+"|"))||Object.keys(S.payouts||{}).some(k=>k.startsWith(t.id+"|")))return true;return (t.groups||[]).some(gHistory)}
+function gHistory(g){const pre=g.id+"|";return Object.keys(S.payments||{}).some(k=>k.startsWith(pre)&&Object.keys(S.payments[k]||{}).length)}
 function inMonth(s,m){return (!s.left||m<s.left)&&(!s.joined||m>=s.joined)}
 function activeSt(g){return (g.students||[]).filter(isActive)}
 function monthSt(g,m){return (g.students||[]).filter(s=>inMonth(s,m))}
@@ -233,7 +238,7 @@ function accountsBox(t){
    Leave it as null and the app works on the device only (local mode). */
 const FIREBASE_CONFIG={apiKey:"AIzaSyB3TNutgwCeZZ0mHygE0NI8yCh9m7x6-oI",authDomain:"jimswani-centers.firebaseapp.com",projectId:"jimswani-centers",storageBucket:"jimswani-centers.firebasestorage.app",messagingSenderId:"809726548597",appId:"1:809726548597:web:986921d2087b145af3f63c"};
 const CLOUD=!!(FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey);
-const APP_VERSION="20";
+const APP_VERSION="21";
 const DEV={name:"م/ محمد جمال",phone:"01069982196"};
 let db=null, ref=null, saveTimer=null, saving=false, pending=false, offline=false, dirty=false;
 let fsdb=null, fauth=null, cuser=null, authState=CLOUD?"loading":"ready", authErr="", lastWritten={}, unsubs=[];
@@ -348,18 +353,23 @@ function viewHome(){
   ${todayBox(wd)}
   <div class="bar" style="justify-content:space-between"><h2>المدرسين</h2><button class="btn ghost" onclick="go({view:'addTeacher'})">+ مدرس جديد</button></div>
   <div class="list">
-    ${S.teachers.length?S.teachers.map((t,i)=>`
+    ${S.teachers.length?S.teachers.map((t,i)=>tActive(t,payMonth)?`
       <button class="row" onclick="go({view:'teacher',tid:'${t.id}'})">
         <span class="avatar" style="background:${COLORS[i%COLORS.length]}">${esc((t.name.replace(/^(مستر|م\/|أ\/|ميس)\s*/,"")[0])||"؟")}</span>
         <span class="m"><h3>${esc(t.name)}</h3><span class="sub">${esc(subNames(t))}${subNames(t)?" · ":""}${(t.groups||[]).length} مجموعة · ${(t.groups||[]).reduce((a,g)=>a+activeSt(g).length,0)} طالب</span><br><span class="sub num">${monthName(payMonth)}: للسنتر ${arn(teacherMonth(t,payMonth).center)} ج · للمدرس ${arn(teacherMonth(t,payMonth).teacher)} ج</span></span>
         <span class="chev">‹</span>
-      </button>`).join(""):'<div class="empty">مفيش مدرسين لسه.</div>'}
+      </button>`:"").join(""):'<div class="empty">مفيش مدرسين لسه.</div>'}
   </div>
+  ${leftBox()}
   ${backupBox()}
   <button class="row" onclick="go({view:'settings'})"><span class="m"><h3>صيغة الرسايل</h3><span class="sub">كل رسايل الواتساب: التذكير والإيصال وللمدرس</span></span><span class="chev">‹</span></button>`;
 }
 
-function todayBox(wd){const L=[];S.teachers.forEach(t=>(t.groups||[]).forEach(g=>{if((g.days||[]).includes(wd))L.push({t,g})}));
+var showLeft=false;
+function leftBox(){const L=S.teachers.filter(t=>!tActive(t,payMonth));if(!L.length)return "";
+  return `<button class="row" onclick="showLeft=!showLeft;render()"><span class="m"><h3>مدرسين سابوا السنتر</h3><span class="sub">${arn(L.length)} مدرس · شهورهم اللي فاتت محفوظة</span></span><span class="chev">${showLeft?"⌄":"‹"}</span></button>
+  ${showLeft?`<div class="list">${L.map(t=>`<button class="row" onclick="go({view:'teacher',tid:'${t.id}'})"><span class="m"><h3>${esc(t.name)}</h3><span class="sub">${esc(subNames(t))}${subNames(t)?" · ":""}ساب من شهر ${monthName(t.left)}</span></span><span class="chev">‹</span></button>`).join("")}</div>`:""}`}
+function todayBox(wd){const L=[];S.teachers.forEach(t=>tActive(t,curMonth())&&(t.groups||[]).forEach(g=>{if((g.days||[]).includes(wd))L.push({t,g})}));
   if(!S.teachers.length)return "";
   L.sort((a,b)=>String(a.g.time||"99").localeCompare(String(b.g.time||"99")));const m=curMonth();
   return `<div class="bar" style="justify-content:space-between"><h2>مجاميع النهاردة <span class="sub">${DAYS[wd]}</span></h2><span class="sub">${arn(L.length)} مجموعة</span></div>
@@ -372,6 +382,7 @@ function viewTeacher(){
   return `
   <div class="top"><button class="back" onclick="go({view:'home'})" aria-label="رجوع">›</button>
     <div class="t"><h1>${esc(t.name)}</h1><div class="sub">${esc(subNames(t))}${t.phone?`${subNames(t)?" · ":""}<a class="phone" href="tel:${esc(digits(t.phone))}" dir="ltr">${esc(t.phone)}</a>`:""}</div></div><button class="btn ghost" onclick="go({view:'editTeacher',tid:'${t.id}'})">تعديل</button></div>
+  ${t.left?`<div class="form leftnote"><b>🚪 ساب السنتر من شهر ${monthName(t.left)}</b><div class="sub">شهوره قبل كده محفوظة زي ما هي. ومن الشهر ده مش بيظهر في القايمة ولا في «لسه مادفعش».</div><button class="btn ghost" onclick="teacherBack('${t.id}')">رجّعه للسنتر</button></div>`:""}
   ${subjectsOf(t).length?accountsBox(t):""}
   ${subjectsOf(t).length?"":`<section class="subj"><h2>أول مادة للمدرس</h2><div class="sub">ضيف المادة أو السنة الدراسية ونسبة السنتر منها، وبعدين ضيف مجاميعها جواها.</div>${subForm(t,null)}</section>`}
   ${subjectsOf(t).map(sub=>{const gs=(t.groups||[]).filter(g=>g.subjectId===sub.id),sh=shareOfSub(sub);
@@ -899,8 +910,13 @@ function viewEditTeacher(){
   ${same.length?`<div class="form"><b>دمج مدرس متكرر</b><div class="sub">لو نفس المدرس متسجل أكتر من مرة (مادة أو سنة في كل مرة)، علّم عليه هنا. مواده ومجاميعه وطلابه وحساباته هتتنقل هنا، كل مادة بنسبتها.</div>
     <div class="mglist">${same.map(x=>`<label class="mg"><input type="checkbox" name="mg" value="${x.id}"${normAr(x.name)===norm?" checked":""}><span><b>${esc(x.name)}</b> <span class="sub">${esc(subNames(x))} · ${arn((x.groups||[]).length)} مجموعة</span></span></label>`).join("")}</div>
     <button class="btn" onclick="mergeTeachers('${t.id}')">دمج</button></div>`:""}
-  <div class="form danger"><b>حذف المدرس</b><div class="sub">هيتمسح ${arn(ng)} مجموعة و${arn(ns)} طالب وكل حساباتهم.</div>
-    <button class="btn delbtn" onclick="delTeacher('${t.id}')">حذف المدرس</button></div>`;
+  ${t.left?"":`<div class="form"><b>المدرس ساب السنتر</b><div class="sub">اختار أول شهر مش هيكون موجود فيه. شهوره اللي قبله بتفضل محفوظة بحساباتها وتقفيلاتها، ومش هيظهر في القايمة ولا «لسه مادفعش» من الشهر ده. وتقدر ترجّعه بعدين.</div>
+    <div class="f"><label class="lbl" for="tlM">من شهر</label><input type="month" id="tlM" value="${addMonth(curMonth(),1)}"></div>
+    <button class="btn" onclick="teacherLeft('${t.id}')">المدرس ساب</button></div>`}
+  <div class="form danger"><b>حذف المدرس</b>${tHistory(t)?`<div class="sub"><b>المدرس ده ليه حسابات في شهور فاتت.</b> لو مسحته هتضيع من كل الشهور، حتى المقفولة. لو ساب السنتر استخدم «المدرس ساب» بدل الحذف.</div>
+    ${delAsk==="t"+t.id?`<div class="f"><label class="lbl" for="delName">عشان تمسحه نهائيًا، اكتب اسمه: <b>${esc(t.name)}</b></label><input id="delName" autocomplete="off"></div><div class="bar"><button class="btn delbtn" onclick="delTeacherHard('${t.id}')">امسح نهائيًا</button><button class="btn ghost" onclick="delAsk=null;render()">إلغاء</button></div>`
+      :`<button class="btn delbtn" onclick="delAsk='t${t.id}';render()">حذف المدرس</button>`}`
+    :`<div class="sub">هيتمسح ${arn(ng)} مجموعة و${arn(ns)} طالب.</div><button class="btn delbtn" onclick="delTeacher('${t.id}')">حذف المدرس</button>`}</div>`;
 }
 function saveTeacher(e){e.preventDefault();const t=findTeacher(nav.tid);if(!t)return;const n=etName.value.trim();if(!n)return;
   t.name=n;t.phone=etPhone.value.trim();teacherImg=null;save();go({view:"teacher",tid:t.id})}
@@ -916,8 +932,10 @@ function viewEditGroup(){
     ${subjectsOf(t).length>1?`<div class="f"><label class="lbl" for="egSub">المادة / السنة</label><select id="egSub">${subjectsOf(t).map(x=>`<option value="${x.id}"${x.id===g.subjectId?" selected":""}>${esc(x.name||"مادة")}</option>`).join("")}</select></div>`:""}
     <div class="f"><label class="lbl" for="egT">المدرس</label><select id="egT">${S.teachers.map(x=>`<option value="${x.id}"${x.id===t.id?" selected":""}>${esc(x.name)}</option>`).join("")}</select><span class="sub">لو غيّرته، المجموعة بحساباتها كلها تروح للمدرس ده.</span></div>
     <button class="btn">حفظ</button></form>
-  <div class="form danger"><b>حذف المجموعة</b><div class="sub">هيتمسح ${arn(ns)} طالب وكل حسابات المجموعة.</div>
-    <button class="btn delbtn" onclick="delGroup()">حذف المجموعة</button></div>`;
+  <div class="form danger"><b>حذف المجموعة</b>${gHistory(g)?`<div class="sub"><b>المجموعة دي ليها دفع متسجل في شهور فاتت.</b> لو مسحتها هتضيع من كل الشهور. لو المجموعة خلصت، سيبها وامسح طلبتها (بيتأرشفوا ويفضلوا في الشهور اللي فاتت).</div>
+    ${delAsk==="g"+g.id?`<div class="f"><label class="lbl" for="delName">عشان تمسحها نهائيًا، اكتب اسمها: <b>${esc(g.name)}</b></label><input id="delName" autocomplete="off"></div><div class="bar"><button class="btn delbtn" onclick="delGroupHard()">امسح نهائيًا</button><button class="btn ghost" onclick="delAsk=null;render()">إلغاء</button></div>`
+      :`<button class="btn delbtn" onclick="delAsk='g${g.id}';render()">حذف المجموعة</button>`}`
+    :`<div class="sub">هيتمسح ${arn(ns)} طالب.</div><button class="btn delbtn" onclick="delGroup()">حذف المجموعة</button>`}</div>`;
 }
 function saveGroup(e){e.preventDefault();const f=findGroup(nav.gid);if(!f)return;const{t,g}=f;
   const days=[...document.querySelectorAll('input[name=ed]:checked')].map(i=>+i.value);if(!days.length){alertBox("اختار يوم واحد على الأقل");return}
@@ -1151,6 +1169,19 @@ function addGroup(e){e.preventDefault();const t=findTeacher(nav.tid);if(t&&!subj
 function alertBox(m){const n=document.createElement("div");n.className="note";n.textContent=m;document.querySelector(".form").prepend(n)}
 var confirmKey=null;
 function twice(key,fn,btn){if(confirmKey===key){confirmKey=null;fn()}else{confirmKey=key;btn.textContent="اضغط تاني للتأكيد";setTimeout(()=>{if(confirmKey===key){confirmKey=null;render()}},3000)}}
+var delAsk=null;
+function delTeacherHard(id){const t=findTeacher(id),v=(document.getElementById("delName")||{}).value||"";if(!t)return;if(v.trim()!==t.name.trim()){flash("الاسم مش مطابق، ماتمسحش حاجة");render();return}delAsk=null;S.teachers=S.teachers.filter(x=>x.id!==id);save();flash("اتمسح المدرس");go({view:"home"})}
+function delGroupHard(){const f=findGroup(nav.gid);if(!f)return;const v=(document.getElementById("delName")||{}).value||"";if(v.trim()!==String(f.g.name).trim()){flash("الاسم مش مطابق، ماتمسحتش");render();return}delAsk=null;f.t.groups=f.t.groups.filter(x=>x.id!==f.g.id);save();flash("اتمسحت المجموعة");go({view:"teacher",tid:f.t.id})}
+function teacherLeft(id){const t=findTeacher(id);if(!t)return;const L=(document.getElementById("tlM")||{}).value;if(!/^\d{4}-\d{2}$/.test(L||"")){flash("اختار الشهر");render();return}
+  const lk=Object.keys(S.locks||{}).filter(k=>k.startsWith(t.id+"|")).map(k=>k.split("|")[1]).filter(m=>m>=L).sort();
+  if(lk.length){flash("شهر "+monthName(lk.at(-1))+" مقفول للمدرس ده. اختار شهر بعده، أو افتح الشهر ده الأول.");render();return}
+  let pm=null;(t.groups||[]).forEach(g=>{const pre=g.id+"|";for(const k in (S.payments||{})){if(k.startsWith(pre)){const m=k.split("|")[1];if(m>=L&&Object.keys(S.payments[k]||{}).length&&(!pm||m>pm))pm=m}}});
+  if(pm){flash("في دفع متسجل في شهر "+monthName(pm)+". اختار شهر بعده.");render();return}
+  t.left=L;(t.groups||[]).forEach(g=>(g.students||[]).forEach(x=>{if(!x.left||x.left>L){x.tLeftPrev=x.left||"";x.left=L}}));
+  teacherImg=null;save();flash("اتسجّل إن المدرس ساب من شهر "+monthName(L));go({view:"teacher",tid:t.id})}
+function teacherBack(id){const t=findTeacher(id);if(!t||!t.left)return;const L=t.left;
+  (t.groups||[]).forEach(g=>(g.students||[]).forEach(x=>{if(x.tLeftPrev!==undefined){if(x.left===L){if(x.tLeftPrev)x.left=x.tLeftPrev;else delete x.left}delete x.tLeftPrev}}));
+  delete t.left;save();flash("المدرس رجع للسنتر ✓");render()}
 function delTeacher(id){twice("t"+id,()=>{S.teachers=S.teachers.filter(t=>t.id!==id);save();go({view:"home"})},event.target)}
 function delGroup(){const{t,g}=findGroup(nav.gid);twice("g"+g.id,()=>{t.groups=t.groups.filter(x=>x.id!==g.id);save();go({view:"teacher",tid:t.id})},event.target)}
 function addStu(e){e.preventDefault();const{g}=findGroup(nav.gid);g.students=g.students||[];
