@@ -325,6 +325,24 @@ body{background:radial-gradient(900px 380px at 50% -200px,rgba(216,56,63,.10),tr
 :root[data-theme="light"] .iconb{color:#1E8A57!important;border-color:#9fd7b8!important}
 .sgc.ok .chk{color:var(--ok)}.sgc.pt .chk{color:var(--warn)}.sgc .chk{flex:none}
 :root[data-theme="light"] .sgc.ok{border-color:#bfe3cf}
+.sava{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--bg);border:1px solid var(--line);color:var(--muted);flex:none}.sava svg{width:17px;height:17px}
+.staffcard .rrow{display:flex;align-items:center;gap:10px}.pendr .sava{color:var(--warn)}
+.devsec{border-top:1px solid var(--line);padding-top:8px}.devsec summary{cursor:pointer;list-style:none}.devsec summary::-webkit-details-marker{display:none}
+.btn.wide{width:100%;display:flex;justify-content:center;gap:6px;margin-top:10px}.btn.wide svg{width:18px;height:18px}
+.paypill{flex:none;width:54px;height:54px;border-radius:50%;border:2px dashed var(--bad)!important;background:transparent;color:var(--bad);display:grid;place-items:center;font-weight:800;font-size:.85rem;padding:0;transition:transform .12s}
+.paypill:active{transform:scale(.92);background:var(--ok-soft);border-style:solid!important;border-color:var(--ok)!important;color:var(--ok)}
+.paypill.partb{border-color:var(--warn)!important;color:var(--warn);border-style:solid!important;background:rgba(226,184,102,.08)}
+.upsearch{margin:4px 0 2px}.upgrp[hidden],.stu[hidden]{display:none!important}
+.duecard{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.dch{display:flex;align-items:center;gap:10px}.dch>div{display:flex;flex-direction:column;gap:2px}.dch .qi{margin:0}.dch .qi svg{color:var(--accent)}
+.duechips{display:flex;flex-wrap:wrap;gap:6px}.duechips .chip{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:7px 12px;font-size:.8rem;font-weight:700}
+.iconb.sent{opacity:.6;border-style:dashed!important}
+.nextrem{width:100%;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px}.nextrem svg{width:17px;height:17px}
+.undo span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:210px}
+.staffmode .ownonly{display:none!important}
+.guide{border-top:1px solid var(--line);padding-top:8px}.guide summary{list-style:none;display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:700;color:var(--ink)}.guide summary::-webkit-details-marker{display:none}.guide summary svg{width:18px;height:18px;color:var(--accent)}.guide summary .chev{margin-inline-start:auto;transition:transform .2s}.guide[open] summary .chev{transform:rotate(-90deg)}
+.gsteps{display:flex;flex-direction:column;gap:12px;margin-top:12px;counter-reset:g}.gstep{display:flex;gap:10px;align-items:flex-start}.gstep>b{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--bg);border:1px solid var(--line);font-size:.8rem}.gstep div{display:flex;flex-direction:column;gap:2px}.gstep h4{margin:0;font-size:.9rem}.gstep .sub{line-height:1.6}
+.gcan{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}.gcan>div{border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:4px;font-size:.8rem}.gcan b{font-size:.82rem}.gcan .y b{color:var(--ok)}.gcan .n b{color:var(--bad)}
 .devline{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:.74rem;opacity:.8}
 .devline i{width:4px;height:4px;border-radius:50%;background:var(--accent);display:inline-block}
 .credit{font-size:.74rem;gap:2px}
@@ -566,7 +584,7 @@ function subscribe(){
   const apply=()=>{if(dirty||saving)return;
     const pay={};for(const m in months)Object.assign(pay,months[m]);
     S={teachers:(core&&core.teachers)||S.teachers||[],locks:(core&&core.locks)||S.locks||{},payouts:(core&&core.payouts)||S.payouts||{},settings:(core&&core.settings)||S.settings||{},attendance:{},payments:core||Object.keys(months).length?pay:(S.payments||{}),expenses:core||Object.keys(months).length?exps:(S.expenses||{})};
-    ensureS();lastWritten=splitState();resetUndo();if(pendCode&&S.settings.devk){const c=pendCode;pendCode=null;setTimeout(()=>devSeal(c).catch(()=>{}),50)}
+    ensureS();lastWritten=splitState();resetUndo();if(pendInvite){try{useInvite()}catch(x){}}if(pendCode&&S.settings.devk){const c=pendCode;pendCode=null;setTimeout(()=>devSeal(c).catch(()=>{}),50)}
     try{localStorage.setItem(lsKey(),JSON.stringify(S))}catch(e){}
     render()};
   unsubs.push(base.onSnapshot(sn=>{if(sn.metadata.hasPendingWrites)return;core=sn.exists?sn.data():{teachers:[]};offline=false;apply()},e=>{offline=true;if(e&&e.code==="permission-denied")authState="blocked";render()}));
@@ -585,14 +603,18 @@ function viewAuth(){
   if(authState==="loading"||authState==="checking")return `<div class="splash"><img src="${LOGO}" alt="${esc(BRAND.name)}" class="splogo"><div class="spbar"><i></i></div></div>`;
   if(authState==="blocked")return head+`<div class="form"><h2>الاشتراك موقوف</h2><div class="sub">الحساب ده مش مفعّل دلوقتي. كلّم الدعم الفني عشان يتفعّل تاني، وبياناتك محفوظة زي ما هي.</div>
     <div class="bar"><span class="pill">الدعم: <span dir="ltr">${esc(DEV.phone)}</span></span></div><button class="btn ghost" onclick="logout()">خروج</button></div>`;
+  if(invMode)return head+`<form class="form" onsubmit="staffJoin(event)"><h2>دخول السكرتير</h2><div class="sub">الصق الكود اللي صاحب السنتر بعتهولك على الواتساب.</div>
+    <textarea id="ivIn" rows="3" dir="ltr" placeholder="S1…" required style="font-size:.8rem"></textarea>${authErr?`<div class="note">${esc(authErr)}</div>`:""}
+    <button class="btn" id="ivBtn">دخول</button><button type="button" class="btn ghost" onclick="invMode=false;authErr='';render()">رجوع</button></form>`;
   return head+`<form class="form" onsubmit="doLogin(event)"><h2>تفعيل البرنامج</h2>
     <div class="sub">اكتب كود التفعيل مرة واحدة بس، والبرنامج هيفضل مفعّل على الجهاز ده.</div>
     <div class="f"><label class="lbl" for="lgPass">كود التفعيل</label><input id="lgPass" type="password" autocomplete="current-password" required dir="ltr" style="letter-spacing:.15em"></div>
     ${authErr?`<div class="note">${esc(authErr)}</div>`:""}
     <button class="btn" id="lgBtn">تفعيل</button>
-    <div class="sub">مش معاك الكود؟ كلّم الدعم الفني: <span dir="ltr">${esc(DEV.phone)}</span></div></form>`;
+    <div class="sub">مش معاك الكود؟ كلّم الدعم الفني: <span dir="ltr">${esc(DEV.phone)}</span></div></form>
+    <button class="btn ghost wide" onclick="invMode=true;authErr='';render()">${ic("teachers")} دخول السكرتير</button>`;
 }
-["delTeacher","delTeacherHard","delGroup","delGroupHard","teacherLeft","teacherBack","saveSubject","delSubject","lockMonth","unlockMonth","payTeacher","saveTeacher","saveGroup","mergeTeachers","setGroupJoined","setStuJoined","saveFee","clearFee","transferSel","delStu","saveTpl","resetTpl","confirmRestore","addTeacher","addGroup","saveShare","addExpense","delExpense","copyExpenses","toggleExp","prepareTeacher","prepareTeacherPDF","prepareCenterReport","prepareCenterPDF","prepareBackup","kickDevice","fireStaff","allowDevice","saveStaffPin","removeStaffPin","toggleStaffDevice","saveStaffDevice","savePins","removePins"].forEach(n=>{const f=window[n];if(typeof f==="function")window[n]=function(...a){if(!isOwner()){flash("الحاجة دي لصاحب السنتر بس");render();return}return f.apply(this,a)}});
+["delTeacher","delTeacherHard","delGroup","delGroupHard","teacherLeft","teacherBack","saveSubject","delSubject","lockMonth","unlockMonth","payTeacher","saveTeacher","saveGroup","mergeTeachers","setGroupJoined","setStuJoined","saveFee","clearFee","transferSel","delStu","saveTpl","resetTpl","confirmRestore","addTeacher","addGroup","saveShare","addExpense","delExpense","copyExpenses","toggleExp","prepareTeacher","prepareTeacherPDF","prepareCenterReport","prepareCenterPDF","prepareBackup","openUnpaidImg","kickDevice","fireStaff","makeInvite","cancelInvite","allowDevice","saveStaffPin","removeStaffPin","toggleStaffDevice","saveStaffDevice","savePins","removePins"].forEach(n=>{const f=window[n];if(typeof f==="function")window[n]=function(...a){if(!isOwner()){flash("الحاجة دي لصاحب السنتر بس");render();return}return f.apply(this,a)}});
 Promise.resolve().then(async()=>{ // runs after the whole script has loaded
   if(CLOUD){render();startCloud()}else{loadLocal();render()}
   if("serviceWorker" in navigator&&/^https?:/.test(location.protocol)){try{navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>r.update()).catch(()=>{})}catch(e){}}
@@ -600,7 +622,7 @@ Promise.resolve().then(async()=>{ // runs after the whole script has loaded
 
 
 /* ---------- views ---------- */
-function go(v){nav=v;rowOpen=null;partEdit=null;window.scrollTo(0,0);render()}
+function go(v){if(v.view!=="unpaid")upQ="";nav=v;rowOpen=null;partEdit=null;window.scrollTo(0,0);render()}
 /* ---------- developer mode (hidden) ---------- */
 const DEV_KEY="3ee9dbaf411b2e235e8f2cef879e3b53ab74d76b57c130a146409d104470cd09"; // SHA-256 of "devkey|"+secret — the developer sends this, never the secret itself
 var devTaps=0,devTapT=0,devAsk=false,devMode=false,devErr="",devMade="",devDone=null,devSecret=null,devCode=null,devShow=false,pendCode=null;
@@ -638,6 +660,7 @@ async function devEnter(e){e.preventDefault();const left=devWaitLeft();if(left){
 function devPanel(){if(!devMode)return "";const em=BRAND.account,uid=cuser&&cuser.uid||"—";
   return `<div class="sect">وضع المبرمج</div><section class="form devpanel" id="devPanel"><div class="bar" style="justify-content:space-between"><h2>${ic("key")} وضع المبرمج</h2><button class="btn ghost" onclick="devLock();render()">قفل</button></div>
   <div class="kv"><span>الحساب</span><b dir="ltr" class="num">${esc(em)}</b></div><div class="kv"><span>UID</span><b dir="ltr" class="num sm">${esc(uid)}</b></div>
+  <details class="devsec"><summary><b>السكرتارية</b> <span class="sub">(${arn(Object.keys(S.settings.devices||{}).length)})</span></summary>${staffList(true)}</details>
   ${devDone?`<div class="okbox"><b>✓ كود التفعيل اتغيّر</b><div class="hashbox code" dir="ltr">${esc(devDone)}</div><div class="sub">قول الكود لصاحب السنتر بنفسك. أي موبايل تاني هيطلبه في خلال ساعة تقريبًا.</div><div class="bar"><button class="btn ghost" onclick="try{navigator.clipboard.writeText('${esc(devDone)}')}catch(e){};this.textContent='اتنسخ ✓'">نسخ</button><button class="btn ghost" onclick="devDone=null;render()">تمام</button></div></div>`
   :`${devCode?`<div class="pinform"><b>كود التفعيل الحالي</b><div class="devcode"><div class="hashbox code" dir="ltr">${devShow?esc(devCode):"••••••••"}</div><button class="btn ghost sm" onclick="devShow=!devShow;render()">${devShow?"إخفاء":"إظهار"}</button><button class="btn ghost sm" onclick="try{navigator.clipboard.writeText(devCode)}catch(e){};this.textContent='اتنسخ ✓'">نسخ</button></div></div>`:""}
   <form onsubmit="devChange(event)" class="pinform"><b>تغيير كود التفعيل</b>${devCode?"":`<div class="sub">البرنامج لسه مايعرفش الكود الحالي. اكتبه مرة واحدة بس، وبعد كده هيفتكره ويظهرلك هنا.</div><input id="dvCur" type="password" autocomplete="off" placeholder="الكود الحالي" dir="ltr" required><button type="button" class="btn ghost" onclick="devRemember()">احفظ الكود الحالي بس</button>`}
@@ -665,31 +688,81 @@ var ROLE=null,pinErr="",pinTries=0,pinWait=0,pinForgot=false,lastHidden=0;
 function staffDevice(){try{return localStorage.getItem("center-staffDevice")==="1"}catch(e){return false}}
 function deviceId(){try{let d=localStorage.getItem("center-deviceId");if(!d){d="d"+Date.now().toString(36)+Math.random().toString(36).slice(2,8);localStorage.setItem("center-deviceId",d)}return d}catch(e){return "d-none"}}
 var staffNaming=false;
-function toggleStaffDevice(){if(staffDevice()){try{localStorage.removeItem("center-staffDevice")}catch(e){}if(S.settings.devices)delete S.settings.devices[deviceId()];save();flash("الموبايل ده رجع عادي ✓");render()}else{staffNaming=true;render();setTimeout(()=>{const i=document.getElementById("sdName");if(i)i.focus()},50)}}
+function toggleStaffDevice(){if(staffDevice()){try{localStorage.removeItem("center-staffDevice")}catch(e){}if(S.settings.devices)delete S.settings.devices[deviceId()];save();flash("الموبايل ده رجع موبايل عادي ✓");render()}else{staffNaming=true;render();setTimeout(()=>{const i=document.getElementById("sdName");if(i)i.focus()},50)}}
 function saveStaffDevice(e){e.preventDefault();const n=(document.getElementById("sdName").value||"").trim()||"موبايل الموظف";S.settings.devices=S.settings.devices||{};S.settings.devices[deviceId()]={name:n,at:new Date().toISOString()};
   if(S.settings.revoked)delete S.settings.revoked[deviceId()];try{localStorage.setItem("center-staffDevice","1")}catch(x){}staffNaming=false;save();flash("«"+n+"» بقى موبايل الموظف ✓");lockNow()}
 function kickDevice(id,btn){twice("kd"+id,()=>{const d=(S.settings.devices||{})[id];S.settings.revoked=S.settings.revoked||{};S.settings.revoked[id]={name:d?d.name:"موبايل",at:new Date().toISOString()};delete S.settings.devices[id];save();flash("«"+(d?d.name:"الموبايل")+"» اتشال من البرنامج ✓");render()},btn)}
 function allowDevice(id){if(S.settings.revoked)delete S.settings.revoked[id];save();flash("الموبايل ده يقدر يرجع تاني ✓");render()}
-function fireStaff(btn){twice("fire",()=>{const P=S.settings.pins||{};delete P.staff;delete P.staffPin;const D=S.settings.devices||{};S.settings.revoked=S.settings.revoked||{};for(const id in D){if(id!==deviceId())S.settings.revoked[id]={name:D[id].name,at:new Date().toISOString()};delete D[id]}save();flash("الموظف اتشال من البرنامج خالص ✓");render()},btn)}
+function fireStaff(btn){twice("fire",()=>{const P=S.settings.pins||{};delete P.staff;delete P.staffPin;S.settings.invites={};const D=S.settings.devices||{};S.settings.revoked=S.settings.revoked||{};for(const id in D){if(id!==deviceId())S.settings.revoked[id]={name:D[id].name,at:new Date().toISOString()};delete D[id]}save();flash("السكرتارية اتشالوا من البرنامج ✓");render()},btn)}
 var showStaffPin=false;
-function staffCard(){const P=S.settings.pins;if(!P||!P.owner)return "";const D=S.settings.devices||{},RV=S.settings.revoked||{},me=deviceId(),fmt=d=>{try{return new Date(d).toLocaleDateString("ar-EG",{day:"numeric",month:"long"})}catch(e){return ""}};
-  return `<section class="form staffcard"><h2>${ic("user")} الموظف</h2>
-  <div class="kv"><span>رقم الموظف</span>${P.staff?`<span class="bar"><b class="num" dir="ltr">${showStaffPin?(P.staffPin?esc(P.staffPin):"اتعمل قبل التحديث ده"):"••••"}</b><button class="btn ghost sm" onclick="showStaffPin=!showStaffPin;render()">${showStaffPin?"إخفاء":"إظهار"}</button></span>`:'<span class="sub">مفيش</span>'}</div>
-  <div class="bar"><button class="btn ghost" onclick="staffEdit=true;render()">${P.staff?"تغيير رقم الموظف":"+ رقم للموظف"}</button>${P.staff?`<button class="x" onclick="removeStaffPin(this)">شيل رقم الموظف</button>`:""}</div>
-  ${staffEdit?`<form onsubmit="saveStaffPin(event)" class="bar"><input id="pnS2" type="password" inputmode="numeric" maxlength="8" placeholder="رقم الموظف الجديد" autocomplete="new-password"><button class="btn">حفظ</button><button type="button" class="btn ghost" onclick="staffEdit=false;render()">إلغاء</button></form>`:""}
-  <div class="lbl">موبايلات الموظفين</div>
-  ${Object.keys(D).length?`<div class="rtable">${Object.entries(D).map(([id,d])=>`<div class="rrow"><span class="m"><b>${esc(d.name)}${id===me?' <span class="pill">الموبايل ده</span>':""}</b><span class="sub">من ${fmt(d.at)}</span></span>${id===me?"":`<button class="x" onclick="kickDevice('${id}',this)">إخراج من البرنامج</button>`}</div>`).join("")}</div>`:`<div class="sub">مفيش موبايلات موظفين. على موبايل الموظف شغّل «الموبايل ده للموظف» تحت.</div>`}
+function staffList(dev){const P=S.settings.pins||{},D=S.settings.devices||{},RV=S.settings.revoked||{},IV=S.settings.invites||{},me=deviceId(),fmt=d=>{try{return new Date(d).toLocaleDateString("ar-EG",{day:"numeric",month:"long"})}catch(e){return ""}};
+  const pend=Object.entries(IV).filter(([,v])=>!v.used),rows=Object.entries(D).map(([id,d])=>`<div class="rrow"><span class="sava">${ic("user")}</span><span class="m"><b>${esc(d.name)}${id===me?' <span class="pill">الموبايل ده</span>':""}</b><span class="sub">شغال من ${fmt(d.at)}</span></span>${id===me?`<button class="btn ghost sm" onclick="toggleStaffDevice()">خلّيه موبايل عادي</button>`:`<button class="x" onclick="kickDevice('${id}',this)">إخراج</button>`}</div>`).join("")
+   +pend.map(([id,v])=>`<div class="rrow pendr"><span class="sava">${ic("chat")}</span><span class="m"><b>${esc(v.name)}</b><span class="sub">اتبعتله دعوة ${fmt(v.at)} · لسه مادخلش</span></span><button class="x" onclick="cancelInvite('${id}',this)">إلغاء</button></div>`).join("");
+  return `${rows?`<div class="rtable">${rows}</div>`:`<div class="sub">مفيش سكرتارية لسه.</div>`}
   ${Object.keys(RV).length?`<details class="rvd"><summary class="sub">اتشالوا من البرنامج (${arn(Object.keys(RV).length)})</summary>${Object.entries(RV).map(([id,d])=>`<div class="rrow"><span class="m"><b>${esc(d.name)}</b><span class="sub">اتشال ${fmt(d.at)}</span></span><button class="btn ghost sm" onclick="allowDevice('${id}')">رجّعه</button></div>`).join("")}</details>`:""}
-  ${P.staff||Object.keys(D).length?`<button class="btn delbtn" onclick="fireStaff(this)">الموظف مشي: اشيله من البرنامج خالص</button><div class="sub">بيشيل رقم الموظف، وبيطلّع كل موبايلات الموظفين من البرنامج وبيمسح الداتا منها أول ما تتصل بالنت.</div>`:""}
-  <div class="kv sdev"><div><b>الموبايل ده للموظف</b><div class="sub">${P.staff?"شغّله على موبايل السكرتير: مفيش «نسيت الرقم السري»، ولو فتحت برقمك عليه بيتقفل لوحده بعد ٣ دقايق.":"اعمل رقم للموظف الأول."}</div></div><button class="switch ${staffDevice()?"on":""}" role="switch" aria-checked="${staffDevice()}" onclick="toggleStaffDevice()"${P.staff||staffDevice()?"":" disabled"} aria-label="الموبايل ده للموظف"><i></i></button></div>
-  ${staffNaming?`<form onsubmit="saveStaffDevice(event)" class="pinform"><label class="lbl" for="sdName">اسم الموبايل ده (عشان تعرفه في القايمة)</label><input id="sdName" placeholder="مثلًا: موبايل أحمد السكرتير"><div class="bar"><button class="btn">تمام</button><button type="button" class="btn ghost" onclick="staffNaming=false;render()">إلغاء</button></div></form>`:""}</section>`}
+  ${P.staff||Object.keys(D).length||pend.length?`<button class="btn delbtn" onclick="fireStaff(this)">${dev?"اخرج كل السكرتارية":"كل السكرتارية مشيوا: اشيلهم من البرنامج"}</button>`:""}`}
+var showStaffPin=false,invAdd=false,invShow=null,invErr="";
+function staffCard(){const P=S.settings.pins;
+  if(!P||!P.owner)return `<section class="form staffcard"><h2>${ic("teachers")} السكرتارية</h2><div class="sub">عشان تضيف سكرتير، شغّل رقمك السري الأول.</div><button class="btn ghost" onclick="pinEdit=true;render();setTimeout(()=>{const b=document.getElementById('pinBox');if(b)b.scrollIntoView({block:'center'})},60)">شغّل رقمي السري</button></section>`;
+  return `<section class="form staffcard"><h2>${ic("teachers")} السكرتارية</h2>
+  <div class="sub">السكرتير بيسجّل الدفع ويبعت الإيصالات والتذكير ويضيف طلبة. مش بيشوف النسب ولا الأرباح ولا التقارير ولا الإعدادات.</div>
+  <div class="kv"><span>رقم السكرتير السري</span>${P.staff?`<span class="bar"><b class="num" dir="ltr">${showStaffPin?(P.staffPin?esc(P.staffPin):"—"):"••••"}</b><button class="btn ghost sm" onclick="showStaffPin=!showStaffPin;render()">${showStaffPin?"إخفاء":"إظهار"}</button><button class="btn ghost sm" onclick="staffEdit=true;render()">تغيير</button></span>`:`<button class="btn ghost sm" onclick="staffEdit=true;render()">+ اعمل رقم</button>`}</div>
+  ${staffEdit?`<form onsubmit="saveStaffPin(event)" class="bar"><input id="pnS2" type="password" inputmode="numeric" maxlength="8" placeholder="رقم السكرتير (٤ لـ ٨ أرقام)" autocomplete="new-password"><button class="btn">حفظ</button><button type="button" class="btn ghost" onclick="staffEdit=false;render()">إلغاء</button></form>`:""}
+  ${staffList(false)}
+  ${staffGuide()}
+  ${invShow?`<div class="okbox"><b>✓ الدعوة جاهزة لـ ${esc(invShow.name)}</b><div class="sub">ابعتهاله على الواتساب. أول ما يفتحها البرنامج هيفتح عنده على وضع السكرتير، ومش هيعرف كود التفعيل بتاعك. الدعوة بتشتغل على موبايل واحد بس.</div>
+    <div class="bar"><a class="btn wa" href="https://wa.me/?text=${encodeURIComponent(invText())}" target="_blank" rel="noopener">${ic("chat")} ابعتها على الواتساب</a><button class="btn ghost" onclick="try{navigator.clipboard.writeText(invText())}catch(e){};this.textContent='اتنسخت ✓'">نسخ</button><button class="btn ghost" onclick="invShow=null;render()">تمام</button></div></div>`
+  :invAdd?`<form onsubmit="makeInvite(event)" class="pinform"><b>إضافة سكرتير</b>${P.staff?"":`<input id="ivPin" type="password" inputmode="numeric" maxlength="8" placeholder="رقم سري للسكرتير (٤ لـ ٨ أرقام)" autocomplete="new-password">`}
+    <input id="ivName" placeholder="اسم السكرتير" required><input id="ivCode" type="password" autocomplete="off" placeholder="كود التفعيل بتاعك (مش هيظهر للسكرتير)" dir="ltr" required>
+    ${invErr?`<div class="note">${esc(invErr)}</div>`:""}<div class="bar"><button class="btn" id="ivGo">اعمل الدعوة</button><button type="button" class="btn ghost" onclick="invAdd=false;invErr='';render()">إلغاء</button></div></form>`
+  :`<button class="btn" onclick="invAdd=true;invErr='';render()">+ إضافة سكرتير</button>`}</section>`}
+function staffGuide(){const st=(t,h,d)=>`<div class="gstep"><b class="num">${t}</b><div><h4>${h}</h4><span class="sub">${d}</span></div></div>`;
+  return `<details class="guide"><summary>${ic("key")}<span>إزاي تستخدم السكرتارية؟</span><span class="chev">‹</span></summary>
+  <div class="gcan"><div class="y"><b>السكرتير يقدر</b><span class="sub">يسجّل الدفع · يبعت الإيصال والتذكير · يضيف طلبة · يدوّر على طالب</span></div><div class="n"><b>مايقدرش</b><span class="sub">يشوف أي مبالغ مجمّعة أو نسب أو أرباح · التقارير · الإعدادات · يعدّل أو يمسح مدرسين ومجاميع</span></div></div>
+  <div class="gsteps">
+  ${st("١","اعمل رقم سري للسكرتير","رقم من ٤ لـ ٨ أرقام، غير رقمك. بيفتح بيه البرنامج على موبايله.")}
+  ${st("٢","دوس «+ إضافة سكرتير»","اكتب اسمه وكود التفعيل بتاعك، وابعتله الرسالة اللي هتطلع على الواتساب. كود التفعيل مش بيظهر له.")}
+  ${st("٣","هو يفتح الرسالة","يفتح اللينك، ويضيف البرنامج للشاشة الرئيسية، ويدوس «دخول السكرتير» ويلصق الكود. البرنامج هيفتح عنده على وضع السكرتير على طول.")}
+  ${st("٤","لو عايز تفتح كصاحب السنتر من موبايله","دوس «قفل» تحت، واكتب رقمك السري انت بدل رقمه. البرنامج هيرجع يقفل لوحده بعد ٣ دقايق عشان رقمك مايفضلش مفتوح عنده.")}
+  ${st("٥","لو السكرتير مشي","دوس «إخراج» قصاد اسمه. أول ما موبايله يتصل بالنت البرنامج والداتا بيتمسحوا منه. ولو كلهم مشيوا دوس «كل السكرتارية مشيوا».")}
+  ${st("٦","للأمان أكتر","بعد ما سكرتير يمشي، غيّر رقم السكرتير. ولو حاسس إن كود التفعيل اتعرف، اطلب تغييره من الدعم الفني.")}
+  </div></details>`}
+function appLink(){return location.origin+location.pathname}
+function invText(){if(!invShow)return "";return `أهلًا يا ${invShow.name}\nده برنامج ${BRAND.name}.\n\n١- افتح اللينك ده:\n${appLink()}\n٢- على الآيفون: من Safari دوس زرار المشاركة ← «إضافة إلى الشاشة الرئيسية»، وافتح البرنامج من الأيقونة.\n٣- دوس «دخول السكرتير» والصق الكود ده:\n${invShow.blob}\n\nرقمك السري في البرنامج: ${(S.settings.pins||{}).staffPin||""}`}
+const b64u=u=>b64(u).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""),ub64u=x=>ub64(x.replace(/-/g,"+").replace(/_/g,"/")+"===".slice((x.length+3)%4));
+async function makeInvite(e){e.preventDefault();invErr="";const name=(document.getElementById("ivName").value||"").trim(),code=(document.getElementById("ivCode").value||"").trim(),pinEl=document.getElementById("ivPin");
+  if(!name){invErr="اكتب اسم السكرتير.";render();return}
+  if(pinEl){const st=pinEl.value.trim();if(!/^\d{4,8}$/.test(st)){invErr="رقم السكرتير لازم يكون من ٤ لـ ٨ أرقام.";render();return}const h=await hashPin(st);if(h===S.settings.pins.owner){invErr="رقم السكرتير لازم يبقى غير رقمك.";render();return}S.settings.pins.staff=h;S.settings.pins.staffPin=st}
+  if(!(CLOUD&&fauth&&fauth.currentUser)){invErr="لازم تكون متصل بالنت.";render();return}
+  const b=document.getElementById("ivGo");if(b){b.disabled=true;b.textContent="جاري التجهيز…"}
+  try{await fauth.currentUser.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(BRAND.account,code))}
+  catch(err){const c=(err&&err.code)||"";invErr=/invalid|wrong|credential|mismatch/.test(c)?"كود التفعيل غلط.":/network/.test(c)?"مفيش نت. جرّب تاني.":/too-many/.test(c)?"محاولات كتير، استنى شوية.":"حصل خطأ: "+c;render();return}
+  const id="i"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),key=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+  const k=await crypto.subtle.importKey("raw",key,"AES-GCM",false,["encrypt"]);const ct=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},k,new TextEncoder().encode(JSON.stringify({c:code,i:id}))));
+  const all=new Uint8Array(28+ct.length);all.set(key,0);all.set(iv,16);all.set(ct,28);
+  S.settings.invites=S.settings.invites||{};S.settings.invites[id]={name,at:new Date().toISOString()};save();invAdd=false;invShow={name,blob:"S1"+b64u(all)};render()}
+function cancelInvite(id,btn){twice("ci"+id,()=>{if(S.settings.invites)delete S.settings.invites[id];save();flash("الدعوة اتلغت");render()},btn)}
+var invMode=false,pendInvite=null;
+async function openInvite(blob){blob=(blob||"").trim().replace(/\s+/g,"");if(!/^S1[A-Za-z0-9_-]{40,}$/.test(blob))throw {code:"bad-invite"};
+  const all=ub64u(blob.slice(2)),k=await crypto.subtle.importKey("raw",all.slice(0,16),"AES-GCM",false,["decrypt"]);
+  try{return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:all.slice(16,28)},k,all.slice(28))))}catch(e){throw {code:"bad-invite"}}}
+async function staffJoin(e){e.preventDefault();authErr="";const btn=document.getElementById("ivBtn");if(btn){btn.disabled=true;btn.textContent="جاري الدخول…"}
+  try{const d=await openInvite(document.getElementById("ivIn").value);
+    try{localStorage.removeItem("center-revoked");localStorage.setItem("center-staffDevice","1")}catch(x){}
+    pendInvite=d.i;await fauth.signInWithEmailAndPassword(BRAND.account,d.c)}
+  catch(err){pendInvite=null;const c=err&&err.code||"";authErr=c==="bad-invite"?"الكود ده مش كامل أو غلط. انسخه تاني من الرسالة كله.":/invalid|wrong|credential/.test(c)?"الدعوة دي قديمة. اطلب دعوة جديدة من صاحب السنتر.":/network/.test(c)?"مفيش نت. اتأكد من الاتصال وجرّب تاني.":"حصل خطأ: "+c;
+    try{localStorage.removeItem("center-staffDevice")}catch(x){}render()}}
+function useInvite(){if(!pendInvite)return;const id=pendInvite;pendInvite=null;const IV=S.settings.invites||{},v=IV[id],me=deviceId();
+  if(!v||(v.used&&v.by!==me)){S.settings.revoked=S.settings.revoked||{};wipeDevice();return}
+  v.used=true;v.by=me;S.settings.devices=S.settings.devices||{};S.settings.devices[me]={name:v.name,at:new Date().toISOString()};if(S.settings.revoked)delete S.settings.revoked[me];
+  try{localStorage.setItem("center-staffDevice","1")}catch(x){}ROLE="staff";nav={view:"home"};skipUndo=true;save()}
 /* a device the owner removed: wipe it and keep it out */
 function revokedLocal(){try{return localStorage.getItem("center-revoked")==="1"}catch(e){return false}}
 function amRevoked(){return !!(S.settings&&S.settings.revoked&&S.settings.revoked[deviceId()])}
 function wipeDevice(){try{localStorage.setItem("center-revoked","1");localStorage.removeItem(lsKey());localStorage.removeItem("center-staffDevice")}catch(e){}
   S={teachers:[],attendance:{},payments:{}};ROLE=null;try{unsubs.forEach(f=>f());unsubs=[]}catch(e){}
   try{if(fauth)fauth.signOut()}catch(e){}try{if(fsdb&&fsdb.terminate)fsdb.terminate().then(()=>fsdb.clearPersistence&&fsdb.clearPersistence()).catch(()=>{})}catch(e){}}
-function viewRevoked(){return `<div class="lockscr"><img src="${LOGO}" alt="${esc(BRAND.name)}" class="lklogo"><section class="form"><h2>الموبايل ده اتشال من البرنامج</h2><div class="sub">صاحب السنتر شال الموبايل ده من البرنامج، والداتا اتمسحت منه. لو ده غلط، كلّم صاحب السنتر.</div></section></div>`}
+function viewRevoked(){return `<div class="lockscr"><img src="${LOGO}" alt="${esc(BRAND.name)}" class="lklogo"><section class="form"><h2>الموبايل ده اتشال من البرنامج</h2><div class="sub">صاحب السنتر شال الموبايل ده من البرنامج، والداتا اتمسحت منه. لو ده غلط، كلّم صاحب السنتر.</div><button class="btn ghost" onclick="try{localStorage.removeItem('center-revoked')}catch(e){};invMode=true;authErr='';render()">معايا دعوة جديدة</button></section></div>`}
 function pinsOn(){const p=S.settings&&S.settings.pins;return !!(p&&p.owner)}
 function isOwner(){return !pinsOn()||ROLE==="owner"}
 function needPin(){return pinsOn()&&!ROLE}
@@ -706,7 +779,7 @@ function viewLock(){const wait=pinWait>Date.now();
     <button class="btn big"${wait?" disabled":""}>دخول</button>
     ${staffDevice()?"":`<button type="button" class="linkbtn" onclick="pinForgot=true;pinErr='';render()">نسيت الرقم السري؟</button>`}</form>`}</div>`}
 async function unlockPin(e){e.preventDefault();if(pinWait>Date.now())return;const v=(document.getElementById("pinIn")||{}).value||"";const h=await hashPin(v.trim()),P=S.settings.pins||{};
-  if(h===P.owner){ROLE="owner"}else if(P.staff&&h===P.staff){ROLE="staff"}else{pinTries++;if(pinTries>=5){pinTries=0;pinWait=Date.now()+30000;pinErr="غلط ٥ مرات. استنى ٣٠ ثانية وجرّب تاني.";setTimeout(render,30500)}else pinErr="الرقم السري غلط.";render();return}
+  if(h===P.owner){ROLE="owner"}else if(P.staff&&h===P.staff){ROLE="staff";const me=deviceId();S.settings.devices=S.settings.devices||{};if(!S.settings.devices[me]){S.settings.devices[me]={name:"موبايل سكرتير",at:new Date().toISOString()};skipUndo=true;save()}try{localStorage.setItem("center-staffDevice","1")}catch(x){}}else{pinTries++;if(pinTries>=5){pinTries=0;pinWait=Date.now()+30000;pinErr="غلط ٥ مرات. استنى ٣٠ ثانية وجرّب تاني.";setTimeout(render,30500)}else pinErr="الرقم السري غلط.";render();return}
   pinErr="";pinTries=0;nav={view:"home"};render()}
 async function forgotPin(e){e.preventDefault();if(staffDevice()){pinForgot=false;render();return}const code=(document.getElementById("fgCode")||{}).value.trim();pinErr="";
   try{if(!CLOUD||!fauth)throw {code:"local"};await fauth.signInWithEmailAndPassword(BRAND.account,code);pendCode=code;
@@ -716,32 +789,31 @@ function lockNow(){if(!pinsOn())return;ROLE=null;pinErr="";nav={view:"home"};ren
 document.addEventListener("visibilitychange",()=>{if(document.hidden){lastHidden=Date.now();if(devMode){devLock();render()}}else if(pinsOn()&&ROLE&&lastHidden&&Date.now()-lastHidden>((staffDevice()&&ROLE==="owner")?60000:5*60000)){ROLE=null;nav={view:"home"};render()}});
 setInterval(()=>{if(staffDevice()&&pinsOn()&&ROLE==="owner"&&!document.hidden&&lastAct&&Date.now()-lastAct>3*60000){ROLE=null;nav={view:"home"};render()}},20000);
 var lastAct=Date.now();["pointerdown","keydown"].forEach(ev=>document.addEventListener(ev,()=>{lastAct=Date.now()},{passive:true}));
-async function savePins(e){e.preventDefault();const o=(document.getElementById("pnO").value||"").trim(),o2=(document.getElementById("pnO2").value||"").trim(),st=(document.getElementById("pnS").value||"").trim();
+async function savePins(e){e.preventDefault();const o=(document.getElementById("pnO").value||"").trim(),o2=(document.getElementById("pnO2").value||"").trim(),st="";
   const ok=x=>/^\d{4,8}$/.test(x);
   if(!ok(o)){flash("الرقم السري لازم يكون من ٤ لـ ٨ أرقام");render();return}if(o!==o2){flash("الرقمين مش زي بعض");render();return}
-  if(st&&!ok(st)){flash("رقم الموظف لازم يكون من ٤ لـ ٨ أرقام");render();return}if(st&&st===o){flash("رقم الموظف لازم يبقى غير رقمك");render();return}
-  S.settings.pins={owner:await hashPin(o)};if(st){S.settings.pins.staff=await hashPin(st);S.settings.pins.staffPin=st}ROLE="owner";pinEdit=false;save();flash("اتحفظ الرقم السري ✓");render()}
-async function saveStaffPin(e){e.preventDefault();const st=(document.getElementById("pnS2").value||"").trim();if(!/^\d{4,8}$/.test(st)){flash("رقم الموظف لازم يكون من ٤ لـ ٨ أرقام");render();return}
-  const h=await hashPin(st);if(h===S.settings.pins.owner){flash("رقم الموظف لازم يبقى غير رقمك");render();return}S.settings.pins.staff=h;S.settings.pins.staffPin=st;staffEdit=false;save();flash("اتحفظ رقم الموظف ✓");render()}
-function removeStaffPin(btn){twice("rsp",()=>{delete S.settings.pins.staff;delete S.settings.pins.staffPin;save();flash("اتشال رقم الموظف");render()},btn)}
-function removePins(btn){twice("rpn",()=>{delete S.settings.pins;ROLE=null;save();flash("اتشال الرقم السري");render()},btn)}
+  if(st&&!ok(st)){flash("رقم السكرتير لازم يكون من ٤ لـ ٨ أرقام");render();return}if(st&&st===o){flash("رقم السكرتير لازم يبقى غير رقمك");render();return}
+  const old=S.settings.pins||{};S.settings.pins={owner:await hashPin(o)};if(old.staff&&old.staff!==S.settings.pins.owner){S.settings.pins.staff=old.staff;if(old.staffPin)S.settings.pins.staffPin=old.staffPin}if(st){S.settings.pins.staff=await hashPin(st);S.settings.pins.staffPin=st}ROLE="owner";pinEdit=false;save();flash("اتحفظ الرقم السري ✓");render()}
+async function saveStaffPin(e){e.preventDefault();const st=(document.getElementById("pnS2").value||"").trim();if(!/^\d{4,8}$/.test(st)){flash("رقم السكرتير لازم يكون من ٤ لـ ٨ أرقام");render();return}
+  const h=await hashPin(st);if(h===S.settings.pins.owner){flash("رقم السكرتير لازم يبقى غير رقمك");render();return}S.settings.pins.staff=h;S.settings.pins.staffPin=st;staffEdit=false;save();flash("اتحفظ رقم السكرتير ✓");render()}
+function removeStaffPin(btn){twice("rsp",()=>{delete S.settings.pins.staff;delete S.settings.pins.staffPin;save();flash("اتشال رقم السكرتير");render()},btn)}
+function removePins(btn){const P=S.settings.pins||{};if(P.staff||Object.keys(S.settings.devices||{}).length){flash("فيه سكرتارية. شيلهم الأول من «السكرتارية»، عشان مايفتحوش البرنامج كصاحب السنتر.");render();return}twice("rpn",()=>{delete S.settings.pins;ROLE=null;save();flash("اتشال الرقم السري");render()},btn)}
 var pinEdit=false,staffEdit=false;
 function codeReqWa(){return "https://wa.me/2"+DEV.phone+"?text="+encodeURIComponent("السلام عليكم، عايز أغيّر كود التفعيل بتاع برنامج "+BRAND.name+"\nالحساب: "+BRAND.file)}
 function codeBox(){return `<section class="form"><div class="bar" style="justify-content:space-between"><div><h2>${ic("key")} كود التفعيل</h2><div class="sub">الكود اللي البرنامج بيتفعّل بيه على أي موبايل. تغييره بيتم من الدعم الفني.</div></div>
   <a class="btn ghost" href="${codeReqWa()}" target="_blank" rel="noopener">طلب تغيير الكود</a></div></section>`}
 function pinBox(){const P=S.settings.pins;
-  if((!P||!P.owner)&&!pinEdit)return `<section class="form"><div class="bar" style="justify-content:space-between"><div><h2>${ic("lock")} الرقم السري</h2><div class="sub">مش شغال. لو حابب البرنامج يفتح برقم سري، أو يبقى في رقم للموظف.</div></div><button class="btn" onclick="pinEdit=true;render()">تشغيل</button></div></section>`;
-  if(!P||!P.owner||pinEdit)return `<section class="form"><h2>${ic("lock")} الرقم السري</h2>
-    <div class="sub">البرنامج هيطلب الرقم السري كل ما يتفتح. وتقدر تعمل رقم تاني للموظف، والموظف يسجّل الدفع والطلبة بس، ومايشوفش النسب والأرباح والإعدادات.</div>
+  if((!P||!P.owner)&&!pinEdit)return `<section class="form" id="pinBox"><div class="bar" style="justify-content:space-between"><div><h2>${ic("lock")} رقمك السري</h2><div class="sub">مش شغال. شغّله عشان محدش يفتح البرنامج غيرك، ولازم يكون شغال عشان تضيف سكرتير.</div></div><button class="btn" onclick="pinEdit=true;render()">تشغيل</button></div></section>`;
+  if(!P||!P.owner||pinEdit)return `<section class="form" id="pinBox"><h2>${ic("lock")} رقمك السري</h2>
+    <div class="sub">البرنامج هيطلب رقمك كل ما يتفتح.</div>
     <form onsubmit="savePins(event)" class="pinform"><div class="f"><label class="lbl" for="pnO">الرقم السري بتاعك (٤ لـ ٨ أرقام)</label><input id="pnO" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password"></div>
     <div class="f"><label class="lbl" for="pnO2">اكتبه تاني</label><input id="pnO2" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password"></div>
-    <div class="f"><label class="lbl" for="pnS">رقم الموظف (اختياري)</label><input id="pnS" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password"></div>
     <div class="bar"><button class="btn">حفظ</button><button type="button" class="btn ghost" onclick="pinEdit=false;render()">إلغاء</button></div></form>
     <div class="sub">لو نسيت الرقم، تقدر تشيله بكود التفعيل.</div></section>`;
-  return `<section class="form"><h2>${ic("lock")} الرقم السري</h2>
+  return `<section class="form" id="pinBox"><h2>${ic("lock")} رقمك السري</h2>
     <div class="kv"><span>رقمك</span><span class="pill okp">شغال ✓</span></div>
     <div class="bar"><button class="btn ghost" onclick="lockNow()">قفل دلوقتي</button><button class="btn ghost" onclick="pinEdit=true;render()">تغيير رقمي</button><button class="x" onclick="removePins(this)">شيل الرقم السري</button></div>
-    <div class="sub">الموظف بيسجّل الدفع ويبعت الإيصالات والتذكير ويضيف طلبة، ومش بيشوف النسب والأرباح والتقارير والإعدادات. البرنامج بيتقفل لوحده لو اتقفل أكتر من ٥ دقايق.</div>
+    <div class="sub">البرنامج بيتقفل لوحده لو اتقفل أكتر من ٥ دقايق.</div>
 </section>`}
 /* ---------- expenses (optional) ---------- */
 function expOn(){return !!(S.settings&&S.settings.expOn)}
@@ -857,7 +929,7 @@ function navBar(){const cur=navSection(nav.view),n=S.teachers.length?unpaidList(
   const it=(k,label,js,badge)=>`<button class="${cur===k?"on":""}" onclick="${js}" aria-label="${label}">${ic(k)}<span>${label}</span>${badge?`<i class="bdg">${badge>99?"+99":arn(badge)}</i>`:""}</button>`;
   return `<nav class="bnav">${it("home","الرئيسية","go({view:'home'})")}${it("teachers","المدرسين","go({view:'teachers'})")}${it("unpaid","مادفعش","payMonth=curMonth();go({view:'unpaid'})",n)}${isOwner()?it("report","التقارير","go({view:'report'})")+it("settings","الإعدادات","go({view:'settings'})"):`<button onclick="lockNow()" aria-label="قفل">${ic("lock")}<span>قفل</span></button>`}</nav>`}
 function render(){
-  const el=document.getElementById("app");
+  const el=document.getElementById("app");try{document.body.classList.toggle("staffmode",!isOwner())}catch(e){}
   let v=nav.view;
   if(CLOUD&&cuser&&authState==="ready"&&amRevoked()){wipeDevice();el.innerHTML=viewRevoked();return}
   if(revokedLocal()){el.innerHTML=viewRevoked()+credit();return}
@@ -881,6 +953,10 @@ function celebrate(msg){if(REDUCED){flash(msg);return}const box=document.createE
   document.body.appendChild(box);setTimeout(()=>box.remove(),2000);try{navigator.vibrate&&navigator.vibrate([20,40,20])}catch(e){}flash(msg)}
 function afterPay(g,x,m,was){if(was||!isPaid(g,x,m))return;buzz();popSid=x.id;const ml=monthSt(g,m);if(ml.length>1&&ml.every(y=>isPaid(g,y,m)))celebrate("🎉 مجموعة «"+g.name+"» كلها دفعت الشهر ده ✓")}
 
+function closeDue(){if(payMonth!==curMonth()||new Date().getDate()>10)return "";const pm=addMonth(curMonth(),-1);
+  const T=S.teachers.filter(t=>tActive(t,pm)&&teacherMonth(t,pm).stu>0&&!isLocked(t.id,pm));if(!T.length)return "";
+  return `<section class="duecard"><div class="dch"><span class="qi">${ic("receipt")}</span><div><b>تقفيلة ${monthName(pm)}</b><span class="sub">لسه ${arn(T.length)} ${T.length>2&&T.length<11?"مدرسين":"مدرس"} مقفلوش الشهر اللي فات</span></div></div>
+  <div class="duechips">${T.map(t=>`<button class="chip" onclick="go({view:'teacher',tid:'${t.id}'});payMonth='${pm}';ttab='close';render()">${esc(t.name)}</button>`).join("")}</div></section>`}
 function viewHome(){
   const now=new Date(), wd=now.getDay(),m=payMonth,own=isOwner(),hr=now.getHours();
   let c=0,ce=0,stu=0,pd=0;S.teachers.forEach(t=>{if(!tActive(t,m))return;const a=teacherMonth(t,m);c+=a.collected;ce+=a.center;stu+=a.stu;pd+=a.paid});
@@ -888,11 +964,11 @@ function viewHome(){
   const tile=(cls,js,icon,label,sub)=>`<button class="qa ${cls}" onclick="${js}"><span class="qi">${ic(icon)}</span><b>${label}</b><span class="sub">${sub}</span></button>`;
   return `
   <header class="hero">${pinsOn()?`<button class="iconbtn" onclick="lockNow()" aria-label="قفل البرنامج">${ic("lock")}</button>`:'<span class="iconsp"></span>'}<img src="${LOGO}" alt="${esc(BRAND.name)} — ${esc(BRAND.latin)}" class="hlogo"><span class="iconsp"></span></header>
-  ${storiesBox()}
+  ${own?storiesBox():""}
   <div class="monthnav card" id="monthNav"><button onclick="shiftMonth(-1)" aria-label="الشهر اللي فات">›</button><div class="mn"><b>${monthName(m)}</b><span class="sub">${m===curMonth()?"النهاردة "+DAYS[wd]+" "+now.toLocaleDateString("ar-EG",{day:"numeric",month:"long"}):`<button class="linkbtn" onclick="payMonth=curMonth();render()">ارجع للشهر ده</button>`}</span></div><button onclick="shiftMonth(1)" aria-label="الشهر الجاي">‹</button></div>
-  ${own?startBox():""}
+  ${own?startBox()+closeDue():""}
   ${!S.teachers.length?(own?"":`<div class="empty">لسه مفيش مدرسين.</div>`)
-  :`<section class="herokpi"><div class="hk-ring">${ring(pct,108,10,"var(--ok)")}<span class="hk-pct"><b class="num">${arn(Math.round(pct*100))}٪</b><span>دفعوا</span></span></div>
+  :`<section class="herokpi ownonly"><div class="hk-ring">${ring(pct,108,10,"var(--ok)")}<span class="hk-pct"><b class="num">${arn(Math.round(pct*100))}٪</b><span>دفعوا</span></span></div>
     <div class="hk-main">${own?`<span class="sub">اتحصّل ${m===curMonth()?"الشهر ده":"في "+monthName(m)}</span><b class="num big"><span data-count="${c}">${arn(c)}</span> <small>ج</small></b>`:`<span class="sub">الطلبة اللي دفعوا</span><b class="num big"><span data-count="${pd}">${arn(pd)}</span> <small>من ${arn(stu)}</small></b>`}
       <span class="sub">${arn(pd)} من ${arn(stu)} طالب · لسه ${arn(n)}</span></div></section>
     ${own?`<div class="kpis"><div class="kpi"><span class="sub">نصيب السنتر</span><b class="num acc" data-count="${ce}">${arn(ce)}</b></div><div class="kpi"><span class="sub">للمدرسين</span><b class="num okc" data-count="${c-ce}">${arn(c-ce)}</b></div>
@@ -925,7 +1001,7 @@ function viewTeachers(){const m=payMonth,own=isOwner();
   <div class="list">
     ${S.teachers.length?S.teachers.map((t,i)=>tActive(t,m)?`
       <button class="row" onclick="go({view:'teacher',tid:'${t.id}'})">
-        ${(()=>{const a=teacherMonth(t,m),p=a.stu?a.paid/a.stu:0;return `<span class="ava">${ring(p,50,4,p>=1?"var(--ok)":"var(--plum)")}<i>${esc((t.name.replace(/^(مستر|م\/|أ\/|ميس|دكتور)\s*/,"")[0])||"؟")}</i></span>`})()}
+        ${(()=>{const a=teacherMonth(t,m),p=a.stu?a.paid/a.stu:0;return `<span class="ava">${own?ring(p,50,4,p>=1?"var(--ok)":"var(--plum)"):""}<i>${esc((t.name.replace(/^(مستر|م\/|أ\/|ميس|دكتور)\s*/,"")[0])||"؟")}</i></span>`})()}
         <span class="m"><h3>${esc(t.name)}</h3><span class="sub">${esc(subNames(t))}${subNames(t)?" · ":""}${(t.groups||[]).length} مجموعة · ${(t.groups||[]).reduce((a,g)=>a+activeSt(g).length,0)} طالب</span>${own?`<br><span class="sub num">للسنتر ${arn(teacherMonth(t,m).center)} ج · للمدرس ${arn(teacherMonth(t,m).teacher)} ج</span>`:""}</span>
         <span class="chev">‹</span>
       </button>`:"").join(""):'<div class="empty">مفيش مدرسين لسه.</div>'}
@@ -951,8 +1027,8 @@ function viewTeacher(){
   return `
   <div class="top"><button class="back" onclick="go({view:'teachers'})" aria-label="رجوع">›</button><div class="t"><span class="ttl">المدرس</span></div>${isOwner()?`<button class="btn ghost" onclick="go({view:'editTeacher',tid:'${t.id}'})">تعديل</button>`:""}</div>
   ${(()=>{const A=subjectsOf(t).length?teacherMonth(t,payMonth):{stu:0,paid:0},p=A.stu?A.paid/A.stu:0,ns=(t.groups||[]).reduce((q,g)=>q+activeSt(g).length,0),w=waNumber(t.phone);
-    return `<section class="profile"><div class="phead"><span class="pava">${ring(p,92,6,p>=1?"var(--ok)":"var(--accent)")}<i>${esc(initials(t.name))}</i></span>
-      <div class="pstats"><div><b class="num">${arn((t.groups||[]).length)}</b><span>مجموعة</span></div><div><b class="num">${arn(ns)}</b><span>طالب</span></div><div><b class="num">${arn(Math.round(p*100))}٪</b><span>دفعوا</span></div></div></div>
+    return `<section class="profile"><div class="phead"><span class="pava">${isOwner()?ring(p,92,6,p>=1?"var(--ok)":"var(--accent)"):""}<i>${esc(initials(t.name))}</i></span>
+      <div class="pstats ownonly"><div><b class="num">${arn((t.groups||[]).length)}</b><span>مجموعة</span></div><div><b class="num">${arn(ns)}</b><span>طالب</span></div><div><b class="num">${arn(Math.round(p*100))}٪</b><span>دفعوا</span></div></div></div>
       <div class="pinfo"><h1>${esc(t.name)}</h1>${subNames(t)?`<span class="sub">${esc(subNames(t))}</span>`:""}</div>
       ${t.phone?`<div class="pacts"><a class="chipbtn" href="tel:${esc(digits(t.phone))}">${ic("phone")}<span>اتصال</span></a>${w?`<a class="chipbtn wa" href="https://wa.me/${w}" target="_blank" rel="noopener">${ic("chat")}<span>واتساب</span></a>`:""}</div>`:""}</section>`})()}
   ${t.left?`<div class="form leftnote"><b>ساب السنتر من شهر ${monthName(t.left)}</b><div class="sub">شهوره قبل كده محفوظة زي ما هي. ومن الشهر ده مش بيظهر في القايمة ولا في «لسه مادفعش».</div>${isOwner()?`<button class="btn ghost" onclick="teacherBack('${t.id}')">رجّعه للسنتر</button>`:""}</div>`:""}
@@ -984,10 +1060,10 @@ function viewGroup(){
     const rec=S.payments[g.id+"|"+payMonth]||{};
     const paid=st.filter(s=>isPaid(g,s,payMonth)).length,parts=st.filter(s=>isPart(g,s,payMonth)).length;
     body=`<div class="monthnav card sm"><button onclick="shiftMonth(-1)" aria-label="الشهر اللي فات">›</button><div class="mn"><b>${monthName(payMonth)}</b>${payMonth===curMonth()?'<span class="sub">الشهر ده</span>':`<button class="linkbtn" onclick="payMonth=curMonth();render()">ارجع للشهر ده</button>`}</div><button onclick="shiftMonth(1)" aria-label="الشهر الجاي">‹</button></div>
-      ${isLocked(t.id,payMonth)?`<div class="note">🔒 الشهر ده مقفول عند ${esc(t.name)}. للتعديل افتحه من صفحة المدرس.</div>`:""}
+      ${isLocked(t.id,payMonth)?`<div class="note">الشهر ده مقفول عند ${esc(t.name)}. للتعديل افتحه من صفحة المدرس.</div>`:""}
       <div class="stats"><div class="stat"><b style="color:var(--ok)">${arn(paid)}</b><span class="sub">دفع</span></div>
       <div class="stat"><b style="color:var(--bad)">${arn(st.length-paid)}</b><span class="sub">لسه${parts?` (${arn(parts)} جزء)`:""}</span></div>
-      <div class="stat"><b class="num">${st.reduce((a,s)=>a+payAmt(g,s,payMonth),0).toLocaleString("ar-EG")}</b><span class="sub">جنيه اتجمع</span></div></div>
+      ${isOwner()?`<div class="stat"><b class="num">${st.reduce((a,s)=>a+payAmt(g,s,payMonth),0).toLocaleString("ar-EG")}</b><span class="sub">جنيه اتجمع</span></div>`:""}</div>
       ${st.length?`<div class="prog big"><i style="width:${Math.round(paid/st.length*100)}%"></i></div>`:""}
       ${st.length&&!paid&&!parts?`<div class="hint">${CHK.no.replace('width="26" height="26"','width="20" height="20"')} دوس على الدايرة جنب اسم الطالب عشان تسجّل إنه دفع</div>`:""}
       <div class="list">${st.map(s=>{const pd=isPaid(g,s,payMonth),pt=isPart(g,s,payMonth),open=rowOpen===s.id||partEdit===s.id,stt=pd?"ok":pt?"pt":"no";
@@ -1470,7 +1546,7 @@ function viewStudent(){
   <section class="form">
     <div class="kv"><span class="lbl">رقم الطالب</span>${tel(s.mobile)}</div>
     <div class="kv"><span class="lbl">ولي الأمر</span>${tel(s.phone)}</div>
-    <div class="stats two"><div class="stat"><b class="num" style="color:var(--ok)">${arn(paidSum)}</b><span class="sub">دفع الشهر ده (ج)</span></div><div class="stat"><b class="num" style="color:var(--bad)">${arn(dueSum)}</b><span class="sub">باقي عليه (ج)</span></div></div>
+    <div class="stats two ownonly"><div class="stat"><b class="num" style="color:var(--ok)">${arn(paidSum)}</b><span class="sub">دفع الشهر ده (ج)</span></div><div class="stat"><b class="num" style="color:var(--bad)">${arn(dueSum)}</b><span class="sub">باقي عليه (ج)</span></div></div>
     <details><summary class="sub">تعديل البيانات</summary>
       <form class="addstu" onsubmit="saveStudent(event)" style="margin-top:8px">
         <input id="edName" value="${esc(s.name)}" required placeholder="الاسم">
@@ -1497,7 +1573,7 @@ function viewStudent(){
 function saveFee(ev,gid,sid){ev.preventDefault();const f=findGroup(gid);const st=f&&(f.g.students||[]).find(x=>x.id===sid);if(!st)return;
   const v=document.getElementById("fee-"+sid).value.trim();if(v===""||+v===+f.g.fee)delete st.fee;else st.fee=Math.max(0,+v||0);const m=curMonth();if(isPaid(f.g,st,m))setPaid(f.g,st,m,true);save();render()}
 function clearFee(gid,sid){const f=findGroup(gid);const st=f&&(f.g.students||[]).find(x=>x.id===sid);if(st){delete st.fee;const m=curMonth();if(isPaid(f.g,st,m))setPaid(f.g,st,m,true);save();render()}}
-function togPayFor(gid,sid){const f=findGroup(gid);const x=f&&(f.g.students||[]).find(y=>y.id===sid);if(!x)return;const m=curMonth(),was=isPaid(f.g,x,m);if(setPaid(f.g,x,m,!was)){save();afterPay(f.g,x,m,was)}render()}
+function togPayFor(gid,sid){buzz();const f=findGroup(gid);const x=f&&(f.g.students||[]).find(y=>y.id===sid);if(!x)return;const m=curMonth(),was=isPaid(f.g,x,m);if(setPaid(f.g,x,m,!was)){save();afterPay(f.g,x,m,was)}render()}
 function saveStudent(e){e.preventDefault();const es=personEntries(nav.key);const name=edName.value.trim();if(!name)return;
   es.forEach(x=>{x.s.name=name;x.s.mobile=edMobile.value.trim();x.s.phone=edPhone.value.trim()});
   nav.key=personKey(es[0].s);save();render()}
@@ -1612,7 +1688,8 @@ var undoStack=[],lastSnap=null,undoUntil=0,undoTimer=null,skipUndo=false;
 function snapNow(){try{return JSON.stringify(S)}catch(e){return null}}
 function resetUndo(){undoStack=[];lastSnap=snapNow()}
 function noteChange(){if(skipUndo){skipUndo=false;lastSnap=snapNow();return}const cur=snapNow();if(lastSnap&&cur!==lastSnap){undoStack.push(lastSnap);if(undoStack.length>15)undoStack.shift();undoUntil=Date.now()+7000;clearTimeout(undoTimer);undoTimer=setTimeout(()=>{const b=document.getElementById("undoBar");if(b)b.remove()},7100)}lastSnap=cur}
-function undoBar(){return undoStack.length&&Date.now()<undoUntil?`<div id="undoBar" class="undo"><span>اتحفظ</span><button onclick="doUndo()">تراجع</button></div>`:""}
+var undoLabel="",undoLabelAt=0;
+function undoBar(){return undoStack.length&&Date.now()<undoUntil?`<div id="undoBar" class="undo"><span>${Date.now()-undoLabelAt<6000?esc(undoLabel):"اتحفظ"}</span><button onclick="doUndo()">تراجع</button></div>`:""}
 function doUndo(){const prev=undoStack.pop();if(!prev)return;S=JSON.parse(prev);skipUndo=true;teacherImg=null;backupImg=null;
   if(nav.view==="group"&&!findGroup(nav.gid))nav={view:"home"};if((nav.view==="teacher"||nav.view==="editTeacher")&&!findTeacher(nav.tid))nav={view:"home"};
   undoUntil=undoStack.length?Date.now()+7000:0;save();render()}
@@ -1633,7 +1710,7 @@ function closeBox(t,a){
   const payout=P?`<div class="okrow">✓ المدرس استلم <b>${arn(P.amount)} ج</b> يوم ${fmtDay(P.date)} <button class="x" onclick="undoPayout('${t.id}')">إلغاء</button></div>
       ${P.amount!==a.teacher?`<div class="note">نصيبه دلوقتي ${arn(a.teacher)} ج، يعني ${a.teacher>P.amount?"ليه "+arn(a.teacher-P.amount)+" ج كمان":"خد "+arn(P.amount-a.teacher)+" ج زيادة"}.</div>`:""}`
     :`<form class="bar" onsubmit="payTeacher(event,'${t.id}')"><input id="poAmt" type="number" inputmode="numeric" min="0" value="${a.teacher}" style="width:110px" aria-label="المبلغ اللي استلمه"><button class="btn">اتسلّم المدرس</button></form>`;
-  const lock=L?`<div class="lockrow">🔒 مقفول من ${fmtDay(L.at)} <button class="x" onclick="unlockMonth('${t.id}',this)">فتح الشهر</button></div>`
+  const lock=L?`<div class="lockrow">${ic("lock")} مقفول من ${fmtDay(L.at)} <button class="x" onclick="unlockMonth('${t.id}',this)">فتح الشهر</button></div>`
     :`<button class="btn ghost" onclick="lockMonth('${t.id}')">قفل الشهر</button>`;
   return `<div class="closebox">${payout}${lock}</div>`;
 }
@@ -1649,19 +1726,23 @@ function flashBar(){return flashMsg&&Date.now()<flashUntil?`<div id="flashBar" c
 function unpaidList(m){const out=[];S.teachers.forEach(t=>(t.groups||[]).forEach(g=>monthSt(g,m).forEach(x=>{if(!isPaid(g,x,m))out.push({t,g,s:x})})));return out}
 function waNumber(n){let d=digits(n);if(d.startsWith("00"))d=d.slice(2);if(d.length===11&&d.startsWith("01"))d="2"+d;else if(d.length===10&&d.startsWith("1"))d="20"+d;return d.length>=11?d:""}
 function reminderText(e,m){return fillTpl(getTpl("reminder"),tplVars(e.t,e.g,e.s,m))}
-function viewUnpaid(){
-  const m=payMonth,list=unpaidList(m),total=list.reduce((a,e)=>a+remaining(e.g,e.s,m),0);
+function viewUnpaid(){if(upQ)setTimeout(filterUnpaid,0);
+  const sent=new Set(remSent(payMonth)),m=payMonth,list=unpaidList(m),total=list.reduce((a,e)=>a+remaining(e.g,e.s,m),0);
   const byT=new Map();list.forEach(e=>{if(!byT.has(e.t.id))byT.set(e.t.id,{t:e.t,items:[]});byT.get(e.t.id).items.push(e)});
-  return `<div class="top"><button class="back" onclick="go({view:'home'})" aria-label="رجوع">›</button><div class="t"><h1>لسه مادفعش</h1><div class="sub">${arn(list.length)} طالب · ${arn(total)} ج</div></div></div>
+  return `<div class="top"><button class="back" onclick="go({view:'home'})" aria-label="رجوع">›</button><div class="t"><h1>لسه مادفعش</h1><div class="sub">${arn(list.length)} طالب${isOwner()?" · "+arn(total)+" ج":""}</div></div></div>
   <div class="monthnav card sm"><button onclick="shiftMonth(-1)" aria-label="الشهر اللي فات">›</button><div class="mn"><b>${monthName(payMonth)}</b>${payMonth===curMonth()?'<span class="sub">الشهر ده</span>':`<button class="linkbtn" onclick="payMonth=curMonth();render()">ارجع للشهر ده</button>`}</div><button onclick="shiftMonth(1)" aria-label="الشهر الجاي">‹</button></div>
-  ${list.length?[...byT.values()].map(({t,items})=>`<div class="bar uphead" style="justify-content:space-between"><div><h2>${esc(t.name)}</h2><span class="sub">${arn(items.length)} طالب · ${arn(items.reduce((a,e)=>a+remaining(e.g,e.s,m),0))} ج</span></div><button class="wa btn sm" onclick="openUnpaidImg('${t.id}','${m}')">${ic("chat")} ابعت للمدرس</button></div>
+  ${list.length>3?`<div class="search upsearch"><span class="sicon">${ic("search")}</span><input id="uq" type="search" placeholder="دوّر باسم الطالب أو المجموعة أو المدرس" value="${esc(upQ)}" oninput="upQ=this.value;filterUnpaid()" autocomplete="off"></div><div class="empty upnone" hidden>مفيش نتيجة</div>`:""}
+  ${list.length?[...byT.values()].map(({t,items})=>`<div class="upgrp"><div class="bar uphead" style="justify-content:space-between"><div><h2>${esc(t.name)}</h2><span class="sub">${arn(items.length)} طالب${isOwner()?" · "+arn(items.reduce((a,e)=>a+remaining(e.g,e.s,m),0))+" ج":""}</span></div>${isOwner()?`<button class="wa btn sm" onclick="openUnpaidImg('${t.id}','${m}')">${ic("chat")} ابعت للمدرس</button>`:""}</div>
     <div class="list">${items.map(e=>{const num=waNumber(e.s.phone)||waNumber(e.s.mobile),who=waNumber(e.s.phone)?"ولي الأمر":"الطالب";
-      const pt=isPart(e.g,e.s,m);return `<div class="stu srow ${pt?"pt":"no"}"><button class="paid chk ${pt?"partb":""}" onclick="payFromList('${e.g.id}','${e.s.id}')" aria-label="سجّل إن ${esc(e.s.name)} دفع">${pt?CHK.pt:CHK.no}</button><button class="m linkish" onclick="openStudent('${e.s.id}')"><h3>${esc(e.s.name)}</h3><span class="sub">${esc(e.g.name)} · <span class="st-${pt?"pt":"no"}">${pt?`باقي ${arn(remaining(e.g,e.s,m))} من ${arn(feeOf(e.g,e.s))}`:arn(feeOf(e.g,e.s))} ج</span></span></button>
-      <button class="wa iconb" onclick="openReminder('${e.g.id}','${e.s.id}','${m}')" aria-label="تذكير ${who}">${ic("chat")}<span>تذكير</span></button></div>`}).join("")}</div>`).join("")
+      const pt=isPart(e.g,e.s,m);return `<div class="stu srow ${pt?"pt":"no"}" data-q="${esc(normAr(e.s.name+" "+e.g.name+" "+t.name)+" "+digits(e.s.mobile)+" "+digits(e.s.phone))}"><button class="paid paypill ${pt?"partb":""}" onclick="payFromList('${e.g.id}','${e.s.id}')" aria-label="سجّل إن ${esc(e.s.name)} دفع"><span>${pt?"كمّل":"دفع"}</span></button><button class="m linkish" onclick="openStudent('${e.s.id}')"><h3>${esc(e.s.name)}</h3><span class="sub">${esc(e.g.name)} · <span class="st-${pt?"pt":"no"}">${pt?`باقي ${arn(remaining(e.g,e.s,m))} من ${arn(feeOf(e.g,e.s))}`:arn(feeOf(e.g,e.s))} ج</span></span></button>
+      <button class="wa iconb ${sent.has(e.g.id+"|"+e.s.id)?"sent":""}" onclick="openReminder('${e.g.id}','${e.s.id}','${m}')" aria-label="تذكير ${who}">${ic("chat")}<span>${sent.has(e.g.id+"|"+e.s.id)?"اتبعت ✓":"تذكير"}</span></button></div>`}).join("")}</div></div>`).join("")
   :`<div class="empty welcome">${CHK.ok.replace('width="26" height="26"','width="56" height="56" style="color:var(--ok)"')}<b>كل الطلبة دفعوا الشهر ده</b></div>`}`;
 }
 function unpaidTextFor(t,items,m){return fillTpl(getTpl("unpaid"),unpaidVars(t,items,m))}
-function payFromList(gid,sid){const f=findGroup(gid);const x=f&&(f.g.students||[]).find(y=>y.id===sid);if(!x)return;if(setPaid(f.g,x,payMonth,true))save();render()}
+var upQ="";
+function filterUnpaid(){const q=normAr(upQ),dq=digits(upQ);let any=false;document.querySelectorAll(".upgrp").forEach(g=>{let n=0;g.querySelectorAll(".stu[data-q]").forEach(r=>{const d=r.dataset.q,hit=!q||d.includes(q)||(dq.length>=3&&d.includes(dq));r.hidden=!hit;if(hit)n++});g.hidden=!n;if(n)any=true});const e=document.querySelector(".upnone");if(e)e.hidden=any}
+function payFromList(gid,sid){const f=findGroup(gid);const x=f&&(f.g.students||[]).find(y=>y.id===sid);if(!x)return;if(setPaid(f.g,x,payMonth,true)){undoLabel=x.name+" دفع ✓";undoLabelAt=Date.now();buzz();save()}render();if(upQ)filterUnpaid()}
+function buzz(){try{navigator.vibrate&&navigator.vibrate(18)}catch(e){}}
 
 var receiptImg=null;
 function receiptNo(g,x,m){let h=0;const str=g.id+x.id+m;for(let i=0;i<str.length;i++)h=(h*31+str.charCodeAt(i))>>>0;return "R"+m.replace("-","").slice(2)+"-"+String(h%10000).padStart(4,"0")}
@@ -1686,10 +1767,14 @@ function receiptWa(){if(!receiptImg)return "";let num="",who="",text="",empty=""
   if(!num)return `<div class="sub">${empty}</div>${pv}`;
   return `<a class="btn wa big" href="https://wa.me/${num}?text=${encodeURIComponent(text)}" target="_blank" rel="noopener" onclick="copyReceiptImg()">إرسال لـ${who} على الواتساب</a>
     <div class="sub">بيفتح شات ${who} والرسالة مكتوبة، والصورة بتتنسخ: في الشات دوس مطوّل ← لصق، والرسالة هتبقى تحت الصورة.</div>${pv}`}
-function copyReceiptImg(){try{if(receiptImg&&receiptImg.blob&&window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write){navigator.clipboard.write([new ClipboardItem({"image/png":receiptImg.blob})]).catch(()=>{})}}catch(e){}}
+function remKey(m){return "center-remSent-"+m}
+function remSent(m){try{return JSON.parse(localStorage.getItem(remKey(m))||"[]")}catch(e){return []}}
+function markSent(){const c=receiptImg&&receiptImg.kind==="reminder"&&receiptImg.ctx;if(!c)return;try{const a=remSent(c.m),k=c.gid+"|"+c.sid;if(!a.includes(k)){a.push(k);localStorage.setItem(remKey(c.m),JSON.stringify(a))}}catch(e){}}
+function nextRem(){const c=receiptImg&&receiptImg.ctx;if(!c)return null;const L=unpaidList(c.m),i=L.findIndex(e=>e.g.id===c.gid&&e.s.id===c.sid);return {i,n:L.length,next:i>=0&&i+1<L.length?L[i+1]:null}}
+function copyReceiptImg(){markSent();try{if(receiptImg&&receiptImg.blob&&window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write){navigator.clipboard.write([new ClipboardItem({"image/png":receiptImg.blob})]).catch(()=>{})}}catch(e){}}
 function closeReceipt(){if(receiptImg&&receiptImg.url)URL.revokeObjectURL(receiptImg.url);receiptImg=null;render()}
 function receiptModal(){if(!receiptImg)return "";return `<div class="modal" onclick="if(event.target===this)closeReceipt()"><div class="sheet">
-  ${receiptImg.url?`<img src="${receiptImg.url}" alt="${receiptImg.kind==="unpaid"?"قايمة اللي مادفعوش":receiptImg.kind==="reminder"?"تذكير بالاشتراك":"إيصال الدفع"}">${receiptWa()}<div class="bar"><button class="btn ghost" onclick="deliverBackup(receiptImg)">مشاركة / حفظ</button><button class="btn ghost" onclick="closeReceipt()">قفل</button></div>${receiptImg.msg?`<div class="note">${esc(receiptImg.msg)}</div>`:""}`
+  ${receiptImg.url?`<img src="${receiptImg.url}" alt="${receiptImg.kind==="unpaid"?"قايمة اللي مادفعوش":receiptImg.kind==="reminder"?"تذكير بالاشتراك":"إيصال الدفع"}">${receiptWa()}${receiptImg.kind==="reminder"&&nav.view==="unpaid"?(()=>{const r=nextRem();return r&&r.next?`<button class="btn ghost nextrem" onclick="const e=nextRem().next;closeReceipt();openReminder('${r.next.g.id}','${r.next.s.id}','${receiptImg.ctx.m}')">${ic("chat")} التذكير اللي بعده: ${esc(r.next.s.name)} <span class="sub">(${arn(r.i+2)} من ${arn(r.n)})</span></button>`:""})():""}<div class="bar"><button class="btn ghost" onclick="deliverBackup(receiptImg)">مشاركة / حفظ</button><button class="btn ghost" onclick="closeReceipt()">قفل</button></div>${receiptImg.msg?`<div class="note">${esc(receiptImg.msg)}</div>`:""}`
   :`<div class="empty">${esc(receiptImg.msg||"")}</div><button class="btn ghost" onclick="closeReceipt()">قفل</button>`}</div></div>`}
 async function buildUnpaidPNG(t,items,m){
   try{await Promise.all(['700 60px "Readex Pro"','500 30px "IBM Plex Sans Arabic"','600 30px "IBM Plex Sans Arabic"'].map(f=>document.fonts.load(f)))}catch(e){}
@@ -1781,8 +1866,8 @@ function viewSettings(){
   ${themeBox()}
   <div class="sect">الأمان</div>
   ${pinBox()}
-  ${staffCard()}
   ${codeBox()}
+  ${staffCard()}
   <div class="sect">الحسابات</div>
   ${expBox()}
   <div class="sect">الرسايل والبيانات</div>
