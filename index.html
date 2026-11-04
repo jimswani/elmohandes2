@@ -33,7 +33,7 @@ details.pick summary{cursor:pointer;list-style:none}details.pick summary::-webki
 .selbox{width:20px;height:20px;accent-color:var(--accent);flex:none}
 .selbar select{width:100%}
 .btn[disabled]{opacity:.45;cursor:not-allowed}
-.feeform{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}.feeform input{width:100px}
+.feeform,.joinform{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}.feeform input{width:100px}.joinform input{width:150px}
 .top .btn.ghost{flex:none;padding:7px 12px}
 .form.danger{border-color:var(--bad)}.delbtn{background:var(--bad)}
 .undo{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:30;display:flex;align-items:center;gap:14px;background:var(--ink);color:var(--bg);padding:8px 10px 8px 16px;border-radius:99px;box-shadow:0 6px 24px rgba(0,0,0,.35);font-size:.9rem}
@@ -198,6 +198,12 @@ function addMonth(m,n){let[y,mo]=m.split("-").map(Number);mo+=n;while(mo>12){mo-
 function tActive(t,m){return !t.left||m<t.left}
 function tHistory(t){if(Object.keys(S.locks||{}).some(k=>k.startsWith(t.id+"|"))||Object.keys(S.payouts||{}).some(k=>k.startsWith(t.id+"|")))return true;return (t.groups||[]).some(gHistory)}
 function gHistory(g){const pre=g.id+"|";return Object.keys(S.payments||{}).some(k=>k.startsWith(pre)&&Object.keys(S.payments[k]||{}).length)}
+function joinedErr(t,g,x,nj){const old=x.joined||"",pre=g.id+"|",lk=Object.keys(S.locks||{}).filter(k=>k.startsWith(t.id+"|")).map(k=>k.split("|")[1]);
+  if(x.left&&nj>=x.left)return x.name+": الشهر ده بعد ما ساب المجموعة.";
+  if(old&&nj<old){const b=lk.filter(m=>m>=nj&&m<old).sort();if(b.length)return "شهر "+monthName(b[0])+" مقفول للمدرس. افتحه الأول عشان تضيف فيه طلبة.";return ""}
+  if(!old||nj>old){const b=lk.filter(m=>m<nj&&(!old||m>=old)).sort();if(b.length)return "شهر "+monthName(b.at(-1))+" مقفول للمدرس. افتحه الأول.";
+    for(const k in (S.payments||{})){if(k.startsWith(pre)){const m=k.split("|")[1];if(m<nj&&(!old||m>=old)&&hasPayV((S.payments[k]||{})[x.id]))return x.name+" ليه دفع في شهر "+monthName(m)+". اختار شهر قبله أو شيل الدفع الأول."}}}
+  return ""}
 function inMonth(s,m){return (!s.left||m<s.left)&&(!s.joined||m>=s.joined)}
 function activeSt(g){return (g.students||[]).filter(isActive)}
 function monthSt(g,m){return (g.students||[]).filter(s=>inMonth(s,m))}
@@ -240,7 +246,7 @@ function accountsBox(t){
    Leave it as null and the app works on the device only (local mode). */
 const FIREBASE_CONFIG={apiKey:"AIzaSyB3TNutgwCeZZ0mHygE0NI8yCh9m7x6-oI",authDomain:"jimswani-centers.firebaseapp.com",projectId:"jimswani-centers",storageBucket:"jimswani-centers.firebasestorage.app",messagingSenderId:"809726548597",appId:"1:809726548597:web:986921d2087b145af3f63c"};
 const CLOUD=!!(FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey);
-const APP_VERSION="22";
+const APP_VERSION="24";
 const DEV={name:"م/ محمد جمال",phone:"01069982196"};
 let db=null, ref=null, saveTimer=null, saving=false, pending=false, offline=false, dirty=false;
 let fsdb=null, fauth=null, cuser=null, authState=CLOUD?"loading":"ready", authErr="", lastWritten={}, unsubs=[];
@@ -395,7 +401,7 @@ function viewTeacher(){
         return `<button class="row" onclick="openGroup('${g.id}')"><span class="m"><h3>${esc(g.name)}</h3><span class="sub">${daysTxt(g)} · الساعة ${fmtTime(g.time)}</span><br>
         <span class="sub num">${activeSt(g).length} طالب · دفع الشهر ${paid}/${ml.length}</span></span>${g.days.includes(wd)?'<span class="pill">النهاردة</span>':''}<span class="chev">‹</span></button>`}).join(""):'<div class="empty">مفيش مجاميع لسه.</div>'}</div></section>`}).join("")}
   ${!subjectsOf(t).length?"":subEdit==="new"?`<section class="subj">${subForm(t,null)}</section>`:`<button class="btn ghost wide" onclick="subEdit='new';render()">+ مادة أو سنة دراسية تانية للمدرس ده</button>`}
-  ${(t.groups||[]).length?teacherReportBox(t):""}
+  ${(t.groups||[]).length?teacherReportBox(t)+pdfBox(t):""}
 `;
 }
 
@@ -618,6 +624,12 @@ async function decodeBackupPNG(file){
 /* --- per-teacher monthly report image (no data band) --- */
 var teacherImg=null;
 function monthAttFor(g,sid,m){let p=0,a=0,ses=0;for(const k in S.attendance){if(!k.startsWith(g.id+"|"+m))continue;const r=S.attendance[k]||{};if(Object.values(r).some(Boolean))ses++;if(r[sid]==="p")p++;else if(r[sid]==="a")a++}return{p,a,ses}}
+function pdfBox(t){const mine=teacherPdf&&teacherPdf.tid===t.id&&teacherPdf.m===payMonth,ready=mine&&teacherPdf.url;
+  return `<section class="form"><div class="bar" style="justify-content:space-between"><h2>ملف التفاصيل PDF</h2><span class="sub">${monthName(payMonth)}</span></div>
+    <div class="sub">أسماء الطلبة في كل مجموعة ودفع كل واحد، على ورق A4 جاهز للطباعة أو الإرسال.</div>
+    ${ready?`<div class="bar"><button class="btn" onclick="deliverBackup(teacherPdf)">إرسال / حفظ الملف</button><a class="btn ghost" href="${teacherPdf.url}" target="_blank" rel="noopener">فتح الملف</a><button class="btn ghost" onclick="prepareTeacherPDF('${t.id}')">تحديث</button></div>`
+      :`<button class="btn ghost" onclick="prepareTeacherPDF('${t.id}')">عمل ملف التفاصيل</button>`}
+    ${mine&&teacherPdf.msg?`<div class="note">${esc(teacherPdf.msg)}</div>`:""}</section>`}
 function teacherReportBox(t){
   const mine=teacherImg&&teacherImg.tid===t.id&&teacherImg.m===payMonth,ready=mine&&teacherImg.url,num=waNumber(t.phone);
   const head=`<div class="bar" style="justify-content:space-between"><h2>تقفيلة المدرس</h2><span class="sub">${monthName(payMonth)}</span></div>`;
@@ -662,7 +674,7 @@ async function buildTeacherPNG(t,m){
     const ses=st.length?Math.max(...st.map(q=>q.ses)):monthAttFor(g,"",m).ses;const p=st.filter(q=>q.paid).length;return{g,st,ses,p,mo:st.reduce((a,q)=>a+q.amt,0)}});
   const STU=gs.reduce((a,q)=>a+q.st.length,0),PAID=gs.reduce((a,q)=>a+q.p,0),MONEY=gs.reduce((a,q)=>a+q.mo,0);
   const AC=teacherMonth(t,m),MS=subjectsOf(t).length>1,SUBH=MS?96+AC.subs.length*64+40:0;const HEAD=240,CLOSE_Y=HEAD+258+190,TOP=CLOSE_Y+282+SUBH,RH=56,GH=96,CH=48,GAP=28;
-  let body=0;gs.forEach(q=>body+=GH+CH+RH*Math.max(1,q.st.length)+14+GAP);if(!gs.length)body=140;
+  const GR=88,body=gs.length?60+GR*gs.length+20+60:140;
   const H=TOP+body+150;
   const c=document.createElement("canvas");c.width=BK_W;c.height=H;const x=c.getContext("2d");
   x.fillStyle=C.bg;x.fillRect(0,0,BK_W,H);
@@ -701,38 +713,92 @@ async function buildTeacherPNG(t,m){
     x.textAlign="center";x.fillStyle=C.muted;x.font="500 24px "+F2;x.fillText(k[0],bx+cw/2,by+46);
     x.fillStyle=i===3?C.red:C.ink;x.font="700 "+(String(k[1]).length>6?36:46)+"px "+F1;x.fillText(k[1],bx+cw/2,by+104);
     x.fillStyle=C.muted;x.font="500 21px "+F2;x.fillText(k[2],bx+cw/2,by+140)});
-  const cols=[["#",70],["الطالب",450],["الاشتراك",200],["الدفع",220]];
-  const X=[];let cx=BK_W-70;cols.forEach(cc=>{X.push([cx,cx-cc[1]]);cx-=cc[1]});
-  const cell=(i,y,txt,color,font)=>{x.fillStyle=color;x.font=font;let s=String(txt);const w=X[i][0]-X[i][1]-24;while(x.measureText(s).width>w&&s.length>3)s=s.slice(0,-2)+"…";
-    if(i===1){x.textAlign="right";x.fillText(s,X[i][0]-14,y)}else{x.textAlign="center";x.fillText(s,(X[i][0]+X[i][1])/2,y)}};
-  const chip=(i,y,txt,fg,bgc)=>{x.font="600 23px "+F2;const w=x.measureText(txt).width+34,cxm=(X[i][0]+X[i][1])/2;x.fillStyle=bgc;roundRect(x,cxm-w/2,y-30,w,42,21);x.fill();x.fillStyle=fg;x.textAlign="center";x.fillText(txt,cxm,y)};
+  // groups summary table (no student names — they go in the PDF)
   let y=TOP;
   if(!gs.length){x.textAlign="center";x.fillStyle=C.muted;x.font="500 30px "+F2;x.fillText("مفيش مجاميع للمدرس ده",BK_W/2,y+70)}
-  gs.forEach(q=>{
-    const h=GH+CH+RH*Math.max(1,q.st.length)+14;
-    x.save();x.shadowColor="rgba(20,20,23,.07)";x.shadowBlur=24;x.shadowOffsetY=6;x.fillStyle=C.card;roundRect(x,70,y,BK_W-140,h,22);x.fill();x.restore();
-    x.strokeStyle=C.line;x.lineWidth=2;roundRect(x,70,y,BK_W-140,h,22);x.stroke();
-    x.fillStyle=C.red;roundRect(x,BK_W-84,y+24,8,52,4);x.fill();
-    x.textAlign="right";x.fillStyle=C.ink;x.font="700 32px "+F1;x.fillText((subjectsOf(t).length>1?subOf(t,q.g).name+" — ":"")+q.g.name,BK_W-110,y+50);
-    x.fillStyle=C.muted;x.font="500 22px "+F2;x.fillText(q.g.days.map(d=>DAYS[d]).join(" و ")+" · "+fmtTime(q.g.time).replace(/\d+/g,d=>AR(d))+" · "+AR(q.g.fee)+" ج للشهر",BK_W-110,y+82);
-    x.textAlign="left";x.fillStyle=C.ink;x.font="700 28px "+F1;x.fillText(AR(q.mo)+" ج",100,y+50);
-    x.fillStyle=C.muted;x.font="500 22px "+F2;x.fillText("دفع "+AR(q.p)+" من "+AR(q.st.length),100,y+82);
-    const hy=y+GH;x.fillStyle=C.redS;x.fillRect(72,hy,BK_W-144,CH);
-    cols.forEach((cc,i)=>cell(i,hy+33,cc[0],C.red,"600 22px "+F2));
-    if(!q.st.length){x.textAlign="center";x.fillStyle=C.muted;x.font="500 24px "+F2;x.fillText("مفيش طلاب",BK_W/2,hy+CH+38)}
-    q.st.forEach((r,i)=>{const ry=hy+CH+RH*i;if(i%2){x.fillStyle="rgba(20,20,23,.025)";x.fillRect(72,ry,BK_W-144,RH)}
-      const by=ry+38;
-      cell(0,by,AR(i+1),C.muted,"500 22px "+F2);
-      cell(1,by,r.s.name,C.ink,"600 26px "+F2);
-      const shown=r.paid?r.amt:feeOf(q.g,r.s),special=shown!==(+q.g.fee||0);cell(2,by,AR(shown)+" ج"+(special?" (خاص)":""),special?C.warn:C.muted,"600 23px "+F2);
-      r.paid?chip(3,by,"✓ دفع",C.ok,C.okS):r.part?chip(3,by,"جزء "+AR(r.amt),C.warn,C.warnS):chip(3,by,"لسه",C.bad,"#FCE9EA");
-    });
-    y+=h+GAP;
-  });
+  else{const th=60+GR*gs.length+20;
+    x.save();x.shadowColor="rgba(20,20,23,.07)";x.shadowBlur=24;x.shadowOffsetY=6;x.fillStyle=C.card;roundRect(x,70,y,BK_W-140,th,22);x.fill();x.restore();x.strokeStyle=C.line;x.lineWidth=2;roundRect(x,70,y,BK_W-140,th,22);x.stroke();
+    const cols=[["المجموعة",430],["الطلاب",140],["دفعوا",200],["المحصّل",170]],X=[];let cx=BK_W-70;cols.forEach(cc=>{X.push([cx,cx-cc[1]]);cx-=cc[1]});
+    const mid=i=>(X[i][0]+X[i][1])/2;
+    x.fillStyle=C.redS;roundRect(x,72,y+2,BK_W-144,56,20);x.fill();
+    cols.forEach((cc,i)=>{x.fillStyle=C.red;x.font="600 24px "+F2;if(i===0){x.textAlign="right";x.fillText(cc[0],X[0][0]-30,y+40)}else{x.textAlign="center";x.fillText(cc[0],mid(i),y+40)}});
+    gs.forEach((q,i)=>{const ry=y+60+GR*i;if(i%2){x.fillStyle="rgba(20,20,23,.03)";x.fillRect(72,ry,BK_W-144,GR)}
+      if(i){x.fillStyle=C.line;x.fillRect(100,ry,BK_W-200,1)}
+      const nm=q.g.name,sn=MS&&subOf(t,q.g).name?subOf(t,q.g).name+" · ":"";
+      x.textAlign="right";x.fillStyle=C.ink;x.font="700 27px "+F1;let a=nm;while(x.measureText(a).width>X[0][0]-X[0][1]-40&&a.length>4)a=a.slice(0,-2)+"…";x.fillText(a,X[0][0]-30,ry+38);
+      x.fillStyle=C.muted;x.font="500 20px "+F2;let d=sn+(q.g.days||[]).map(k=>DAYS[k]).join(" و ")+" · "+fmtTime(q.g.time).replace(/\d+/g,k=>AR(k))+" · "+AR(q.g.fee)+" ج";while(x.measureText(d).width>X[0][0]-X[0][1]-40&&d.length>4)d=d.slice(0,-2)+"…";x.fillText(d,X[0][0]-30,ry+68);
+      x.textAlign="center";x.fillStyle=C.ink;x.font="700 30px "+F1;x.fillText(AR(q.st.length),mid(1),ry+54);
+      const pp=q.st.filter(r=>r.part).length;x.fillStyle=q.st.length&&q.p===q.st.length?C.ok:C.ink;x.font="700 28px "+F1;x.fillText(AR(q.p)+" من "+AR(q.st.length),mid(2),pp?ry+44:ry+54);
+      if(pp){x.fillStyle=C.warn;x.font="600 19px "+F2;x.fillText("+ "+AR(pp)+" جزء",mid(2),ry+72)}
+      x.fillStyle=C.red;x.font="700 28px "+F1;x.fillText(AR(q.mo)+" ج",mid(3),ry+54)});
+    y+=th;
+    x.textAlign="center";x.fillStyle=C.muted;x.font="500 22px "+F2;x.fillText("أسماء الطلبة ودفع كل واحد بالتفصيل في ملف PDF",BK_W/2,y+44)}
   x.textAlign="center";x.fillStyle=C.ink;x.font="700 30px "+F1;x.fillText(BRAND.name+" · "+BRAND.latin,BK_W/2,H-78);
   x.fillStyle=C.black;x.fillRect(0,H-30,BK_W,30);x.fillStyle=C.red;x.fillRect(0,H-30,BK_W,5);
   return await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error("toBlob")),"image/png"));
 }
+function makePDF(pages){const enc=new TextEncoder(),parts=[],offs=[];let len=0;const push=b=>{if(typeof b==="string")b=enc.encode(b);parts.push(b);len+=b.length};
+  const PW=595.28,PH=841.89,n=pages.length;push("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
+  const obj=(id,body)=>{offs[id]=len;push(id+" 0 obj\n");body.forEach(push);push("\nendobj\n")};
+  obj(1,["<< /Type /Catalog /Pages 2 0 R >>"]);
+  obj(2,["<< /Type /Pages /Count "+n+" /Kids ["+pages.map((_,i)=>(3+i*3)+" 0 R").join(" ")+"] >>"]);
+  pages.forEach((pg,i)=>{const pid=3+i*3,cid=pid+1,iid=pid+2,cs="q "+PW+" 0 0 "+PH+" 0 0 cm /Im0 Do Q";
+    obj(pid,["<< /Type /Page /Parent 2 0 R /MediaBox [0 0 "+PW+" "+PH+"] /Resources << /XObject << /Im0 "+iid+" 0 R >> >> /Contents "+cid+" 0 R >>"]);
+    obj(cid,["<< /Length "+cs.length+" >>\nstream\n"+cs+"\nendstream"]);
+    obj(iid,["<< /Type /XObject /Subtype /Image /Width "+pg.w+" /Height "+pg.h+" /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length "+pg.jpg.length+" >>\nstream\n",pg.jpg,"\nendstream"])});
+  const total=3+n*3,xref=len;let x="xref\n0 "+total+"\n0000000000 65535 f \n";for(let k=1;k<total;k++)x+=String(offs[k]).padStart(10,"0")+" 00000 n \n";
+  push(x+"trailer\n<< /Size "+total+" /Root 1 0 R >>\nstartxref\n"+xref+"\n%%EOF");
+  return new Blob(parts,{type:"application/pdf"})}
+async function buildTeacherPDF(t,m){
+  try{await Promise.all(['700 40px "Readex Pro"','500 26px "IBM Plex Sans Arabic"','600 26px "IBM Plex Sans Arabic"'].map(f=>document.fonts.load(f)))}catch(e){}
+  const F1='"Readex Pro","IBM Plex Sans Arabic",Tahoma,sans-serif',F2='"IBM Plex Sans Arabic",Tahoma,sans-serif';
+  const C={ink:"#141417",muted:"#6E6E77",line:"#E3E3E8",red:BRAND.accent,redS:BRAND.accentSoft,black:BRAND.dark,ok:"#1E8A57",okS:"#E3F4EA",warn:"#B7791F",warnS:"#FBF1DF",bad:"#C2413A",badS:"#FCE9EA"};
+  const W=1240,H=1754,ML=60,MR=W-60,HEAD=170,FOOT=90,RH=50,TH=46,GH=96,AC=teacherMonth(t,m),MS=subjectsOf(t).length>1;
+  let lg=null;try{lg=await loadImg(LOGO)}catch(e){}
+  const pages=[];let x,y;
+  const newPage=()=>{const c=document.createElement("canvas");c.width=W;c.height=H;x=c.getContext("2d");pages.push(c);x.fillStyle="#fff";x.fillRect(0,0,W,H);
+    x.fillStyle=C.black;x.fillRect(0,0,W,HEAD);if(lg){const lw=250,lh=lw*lg.height/lg.width;x.globalCompositeOperation="lighten";x.drawImage(lg,ML,(HEAD-lh)/2,lw,lh);x.globalCompositeOperation="source-over"}
+    x.fillStyle=C.red;x.fillRect(0,HEAD,W,6);x.direction="rtl";x.textAlign="right";
+    const TW=MR-ML-300,fit=(txt)=>{let q=txt;while(x.measureText(q).width>TW&&q.length>4)q=q.slice(0,-2)+"…";return q};
+    x.fillStyle="#fff";x.font="700 40px "+F1;x.fillText(fit(t.name),MR,72);x.fillStyle="#B9B9C0";x.font="500 24px "+F2;x.fillText(fit("تفاصيل الطلبة · شهر "+monthName(m)+(subNames(t)?" · "+subNames(t):"")),MR,118);
+    y=HEAD+40};
+  const need=h=>{if(y+h>H-FOOT)newPage()};
+  const cols=[["#",80],["الطالب",600],["الاشتراك",210],["الدفع",230]],X=[];{let cx=MR;cols.forEach(cc=>{X.push([cx,cx-cc[1]]);cx-=cc[1]})}
+  const mid=i=>(X[i][0]+X[i][1])/2;
+  const tableHead=()=>{x.fillStyle=C.redS;x.fillRect(ML,y,MR-ML,TH);x.font="600 22px "+F2;x.fillStyle=C.red;cols.forEach((cc,i)=>{if(i===1){x.textAlign="right";x.fillText(cc[0],X[1][0]-14,y+31)}else{x.textAlign="center";x.fillText(cc[0],mid(i),y+31)}});y+=TH};
+  const groupHead=(g,st,p,mo,cont)=>{x.fillStyle="#F6F6F8";roundRect(x,ML,y,MR-ML,GH-12,16);x.fill();x.fillStyle=C.red;x.fillRect(MR-8,y+14,8,GH-40);
+    x.textAlign="right";x.fillStyle=C.ink;x.font="700 30px "+F1;x.fillText((MS&&subOf(t,g).name?subOf(t,g).name+" — ":"")+g.name+(cont?" (تكملة)":""),MR-26,y+40);
+    x.fillStyle=C.muted;x.font="500 21px "+F2;x.fillText((g.days||[]).map(k=>DAYS[k]).join(" و ")+" · "+fmtTime(g.time).replace(/\d+/g,k=>AR(k))+" · "+AR(g.fee)+" ج للشهر",MR-26,y+72);
+    x.textAlign="left";x.fillStyle=C.ink;x.font="700 26px "+F1;x.fillText(AR(mo)+" ج",ML+24,y+40);x.fillStyle=C.muted;x.font="500 21px "+F2;x.fillText("دفع "+AR(p)+" من "+AR(st.length),ML+24,y+72);y+=GH};
+  const chip=(txt,fg,bg,cy)=>{x.font="600 21px "+F2;const w=x.measureText(txt).width+30,cx=mid(3);x.fillStyle=bg;roundRect(x,cx-w/2,cy-27,w,38,19);x.fill();x.fillStyle=fg;x.textAlign="center";x.fillText(txt,cx,cy)};
+  newPage();
+  // summary strip on page 1
+  {const items=[["الطلاب",AR(AC.stu)],["دفعوا",AR(AC.paid)+" من "+AR(AC.stu)],["المحصّل",AR(AC.collected)+" ج"],["نصيب السنتر",AR(AC.center)+" ج"],["صافي المدرس",AR(AC.teacher)+" ج"]],w=(MR-ML)/items.length;
+   x.strokeStyle=C.line;x.lineWidth=2;roundRect(x,ML,y,MR-ML,100,16);x.stroke();
+   items.forEach((k,i)=>{const cx=MR-w*i-w/2;if(i){x.fillStyle=C.line;x.fillRect(MR-w*i,y+20,2,60)}x.textAlign="center";x.fillStyle=C.muted;x.font="500 20px "+F2;x.fillText(k[0],cx,y+38);x.fillStyle=i===3?C.red:i===4?C.ok:C.ink;x.font="700 28px "+F1;x.fillText(k[1],cx,y+78)});y+=130}
+  const groups=(t.groups||[]);
+  if(!groups.length){x.textAlign="center";x.fillStyle=C.muted;x.font="500 28px "+F2;x.fillText("مفيش مجاميع للمدرس ده",W/2,y+60)}
+  groups.forEach(g=>{const st=monthSt(g,m),p=st.filter(s2=>isPaid(g,s2,m)).length,mo=st.reduce((a,s2)=>a+payAmt(g,s2,m),0);
+    need(GH+TH+RH);groupHead(g,st,p,mo,false);tableHead();
+    if(!st.length){x.textAlign="center";x.fillStyle=C.muted;x.font="500 22px "+F2;x.fillText("مفيش طلاب في الشهر ده",W/2,y+34);y+=RH}
+    st.forEach((s2,i)=>{if(y+RH>H-FOOT){newPage();groupHead(g,st,p,mo,true);tableHead()}
+      if(i%2){x.fillStyle="rgba(20,20,23,.03)";x.fillRect(ML,y,MR-ML,RH)}x.fillStyle=C.line;x.fillRect(ML,y+RH-1,MR-ML,1);
+      const by=y+33;x.textAlign="center";x.fillStyle=C.muted;x.font="500 21px "+F2;x.fillText(AR(i+1),mid(0),by);
+      x.textAlign="right";x.fillStyle=C.ink;x.font="600 24px "+F2;let nm=s2.name;while(x.measureText(nm).width>X[1][0]-X[1][1]-28&&nm.length>3)nm=nm.slice(0,-2)+"…";x.fillText(nm,X[1][0]-14,by);
+      const fee=feeOf(g,s2),special=fee!==(+g.fee||0);x.textAlign="center";x.fillStyle=special?C.warn:C.muted;x.font="600 22px "+F2;x.fillText(AR(fee)+" ج"+(special?" (خاص)":""),mid(2),by);
+      isPaid(g,s2,m)?chip("✓ دفع "+AR(payAmt(g,s2,m)),C.ok,C.okS,by):isPart(g,s2,m)?chip("جزء "+AR(payAmt(g,s2,m))+" · باقي "+AR(remaining(g,s2,m)),C.warn,C.warnS,by):chip("لسه",C.bad,C.badS,by);
+      y+=RH});
+    y+=28});
+  const N=pages.length,out=[];
+  for(let i=0;i<N;i++){const c=pages[i],g2=c.getContext("2d");g2.direction="rtl";g2.fillStyle=C.line;g2.fillRect(ML,H-FOOT+20,MR-ML,2);
+    g2.textAlign="right";g2.fillStyle=C.muted;g2.font="500 20px "+F2;g2.fillText(BRAND.name+" · "+BRAND.latin,MR,H-FOOT+58);
+    g2.textAlign="left";g2.fillText("صفحة "+AR(i+1)+" من "+AR(N),ML,H-FOOT+58);
+    const b=await new Promise(r=>c.toBlob(r,"image/jpeg",0.88));out.push({w:W,h:H,jpg:new Uint8Array(await b.arrayBuffer())})}
+  return makePDF(out)}
+var teacherPdf=null;
+async function prepareTeacherPDF(tid){const t=findTeacher(tid);if(!t)return;teacherPdf={tid,m:payMonth,msg:"جاري تجهيز الملف…"};render();
+  try{const blob=await buildTeacherPDF(t,payMonth);teacherPdf={tid,m:payMonth,blob,url:URL.createObjectURL(blob),type:"application/pdf",name:"تفاصيل "+t.name.replace(/[\\/:*?"<>|]/g,"-")+" - "+payMonth+".pdf",msg:""}}
+  catch(e){teacherPdf={tid,m:payMonth,msg:"ماقدرتش أعمل الملف، جرّب تاني."}}render()}
 async function prepareBackup(){
   backupMsg="جاري تجهيز الصورة…";render();
   try{
@@ -747,12 +813,12 @@ async function prepareBackup(){
 function closeBackupImg(){if(backupImg)URL.revokeObjectURL(backupImg.url);backupImg=null;backupMsg="";render()}
 async function deliverBackup(o){
   o=o||backupImg;if(!o||!o.blob)return;
-  const file=new File([o.blob],o.name,{type:"image/png"});
+  const file=new File([o.blob],o.name,{type:o.type||"image/png"}),isPdf=o.type==="application/pdf";
   if(navigator.canShare&&navigator.canShare({files:[file]})){
-    try{await navigator.share({files:[file],title:o===backupImg?"نسخة احتياطية — "+BRAND.short:(o===receiptImg?(o.kind==="reminder"?"تذكير — ":o.kind==="unpaid"?"لسه مادفعش — ":"إيصال — "):"تقرير — ")+BRAND.short});if(o===backupImg)markBackup();backupMsg=(o===backupImg?"اتحفظت النسخة. ✓":"اتحفظت الصورة. ✓")}
+    try{await navigator.share({files:[file],title:o===backupImg?"نسخة احتياطية — "+BRAND.short:(o===receiptImg?(o.kind==="reminder"?"تذكير — ":o.kind==="unpaid"?"لسه مادفعش — ":"إيصال — "):isPdf?"تفاصيل — ":"تقرير — ")+BRAND.short});if(o===backupImg)markBackup();backupMsg=(o===backupImg?"اتحفظت النسخة. ✓":isPdf?"اتبعت الملف. ✓":"اتحفظت الصورة. ✓")}
     catch(e){backupMsg=e&&e.name==="AbortError"?"اتلغت. تقدر تدوس مطوّل على الصورة وتحفظها.":"المشاركة مش شغالة — دوس مطوّل على الصورة واختار «إضافة إلى الصور»."}
   }else{
-    const a=document.createElement("a");a.href=o.url;a.download=o.name;document.body.appendChild(a);a.click();a.remove();if(o===backupImg)markBackup();backupMsg="اتنزّلت الصورة."
+    const a=document.createElement("a");a.href=o.url;a.download=o.name;document.body.appendChild(a);a.click();a.remove();if(o===backupImg)markBackup();backupMsg=isPdf?"اتنزّل الملف.":"اتنزّلت الصورة."
   }
   if(o!==backupImg){o.msg=backupMsg;backupMsg=""}
   render();
@@ -836,6 +902,8 @@ function viewStudent(){
       ${isPart(e.g,e.s,m)?`<div class="sub"><b class="partt">دفع ${arn(payAmt(e.g,e.s,m))} من ${arn(feeOf(e.g,e.s))}</b> · باقي ${arn(remaining(e.g,e.s,m))} ج</div>`:""}
       ${partEdit===e.s.id?`<form class="partform" onsubmit="savePart(event,'${e.g.id}','${e.s.id}')"><label class="lbl" for="partAmt">دفع كام من ${arn(feeOf(e.g,e.s))}؟</label><input id="partAmt" type="number" inputmode="numeric" min="0" value="${isPart(e.g,e.s,m)?payAmt(e.g,e.s,m):""}"><button class="btn">حفظ</button><button type="button" class="btn ghost" onclick="partEdit=null;render()">إلغاء</button></form>`:""}
       <div class="months">${months.slice().reverse().map(mm=>{const ok=isPaid(e.g,e.s,mm),pt=isPart(e.g,e.s,mm);return `<span class="mchip ${ok?"ok":pt?"part":""}">${MONTHS_AR[+mm.slice(5)-1]}</span>`}).join("")}</div>
+      <form class="joinform" onsubmit="setStuJoined(event,'${e.g.id}','${e.s.id}')"><label class="lbl" for="jn-${e.s.id}">بدأ من شهر</label>
+        <input id="jn-${e.s.id}" type="month" value="${esc(e.s.joined||"")}"><button class="btn ghost">حفظ</button></form>
       <form class="feeform" onsubmit="saveFee(event,'${e.g.id}','${e.s.id}')"><label class="lbl" for="fee-${e.s.id}">اشتراكه هنا</label>
         <input id="fee-${e.s.id}" type="number" inputmode="numeric" min="0" placeholder="${esc(e.g.fee)}" value="${hasCustomFee(e.s)?esc(e.s.fee):""}">
         <button class="btn ghost">حفظ</button>${hasCustomFee(e.s)?`<button type="button" class="x" onclick="clearFee('${e.g.id}','${e.s.id}')">سعر المجموعة</button>`:""}</form></div>`}).join("")}</div>
@@ -934,6 +1002,10 @@ function viewEditGroup(){
     ${subjectsOf(t).length>1?`<div class="f"><label class="lbl" for="egSub">المادة / السنة</label><select id="egSub">${subjectsOf(t).map(x=>`<option value="${x.id}"${x.id===g.subjectId?" selected":""}>${esc(x.name||"مادة")}</option>`).join("")}</select></div>`:""}
     <div class="f"><label class="lbl" for="egT">المدرس</label><select id="egT">${S.teachers.map(x=>`<option value="${x.id}"${x.id===t.id?" selected":""}>${esc(x.name)}</option>`).join("")}</select><span class="sub">لو غيّرته، المجموعة بحساباتها كلها تروح للمدرس ده.</span></div>
     <button class="btn">حفظ</button></form>
+  ${(()=>{const st=(g.students||[]).filter(x=>!x.left);if(!st.length)return "";const js=st.map(x=>x.joined||"").filter(Boolean).sort(),j0=js[0]||curMonth();
+    return `<div class="form"><b>الطلبة بدأوا من شهر</b><div class="sub">الطالب بيظهر في الحسابات من الشهر اللي بدأ فيه. لو عايز طلبة المجموعة دي يظهروا في شهر قبل كده (مثلًا عشان تقفل شهر فات)، اختاره هنا ويتطبّق على كل الطلبة الحاليين (${arn(st.length)}).</div>
+    <div class="f"><label class="lbl" for="gjM">من شهر</label><input type="month" id="gjM" value="${j0}"></div>
+    <button class="btn" onclick="setGroupJoined()">طبّق على كل الطلبة</button></div>`})()}
   <div class="form danger"><b>حذف المجموعة</b>${gHistory(g)?`<div class="sub"><b>المجموعة دي ليها دفع متسجل في شهور فاتت.</b> لو مسحتها هتضيع من كل الشهور. لو المجموعة خلصت، سيبها وامسح طلبتها (بيتأرشفوا ويفضلوا في الشهور اللي فاتت).</div>
     ${delAsk==="g"+g.id?`<div class="f"><label class="lbl" for="delName">عشان تمسحها نهائيًا، اكتب اسمها: <b>${esc(g.name)}</b></label><input id="delName" autocomplete="off"></div><div class="bar"><button class="btn delbtn" onclick="delGroupHard()">امسح نهائيًا</button><button class="btn ghost" onclick="delAsk=null;render()">إلغاء</button></div>`
       :`<button class="btn delbtn" onclick="delAsk='g${g.id}';render()">حذف المجموعة</button>`}`
@@ -1103,7 +1175,7 @@ async function buildReceiptPNG(t,g,x,m,mode){const RM=mode==="reminder";
 /* ---------- message templates ---------- */
 var TPL_DEFAULT={
   reminder:"السلام عليكم، تذكير باشتراك شهر {الشهر} للطالب {الطالب} في مجموعة {المجموعة} مع {المدرس}: {الباقي} جنيه.\n{السنتر}",
-  closing:"السلام عليكم يا {المدرس} 👋\nكل شهر وحضرتك طيب 🌹\n\n📊 تقفيلة شهر {الشهر}\n👥 دفعوا {دفعوا} من {عدد_الطلبة} طالب\n💰 إجمالي المحصّل: {المحصل} ج\n🏢 نصيب السنتر: {نصيب_السنتر} ج\n✅ صافي حضرتك: {صافي_المدرس} ج\n{الاستلام}\n\n📎 التفاصيل كاملة في الصورة\nشكرًا لحضرتك 🙏\n{السنتر}",
+  closing:"السلام عليكم يا {المدرس} 👋\nكل شهر وحضرتك طيب 🌹\n\n📊 تقفيلة شهر {الشهر}\n👥 دفعوا {دفعوا} من {عدد_الطلبة} طالب\n💰 إجمالي المحصّل: {المحصل} ج\n🏢 نصيب السنتر: {نصيب_السنتر} ج\n✅ صافي حضرتك: {صافي_المدرس} ج\n{الاستلام}\n\n📎 الملخص في الصورة، وأسماء الطلبة بالتفصيل في ملف PDF\nشكرًا لحضرتك 🙏\n{السنتر}",
   unpaid:"السلام عليكم يا {المدرس} 👋\n📋 الطلبة اللي لسه مادفعوش شهر {الشهر} ({العدد} طالب):\n\n{القايمة}\n\n💰 الإجمالي: {الإجمالي} ج\n{السنتر}",
   receipt:"إيصال دفع — {السنتر}\nالطالب: {الطالب}\nالمجموعة: {المجموعة} مع {المدرس}\nالشهر: {الشهر}\nالمبلغ: {المدفوع} جنيه ✓\nالباقي: {الباقي} جنيه\nرقم الإيصال: {رقم_الإيصال}"};
 var TPL_KEYS=["الطالب","المجموعة","المدرس","المادة","الشهر","الاشتراك","المدفوع","الباقي","السنتر","رقم_الإيصال"];
@@ -1172,6 +1244,11 @@ function alertBox(m){const n=document.createElement("div");n.className="note";n.
 var confirmKey=null;
 function twice(key,fn,btn){if(confirmKey===key){confirmKey=null;fn()}else{confirmKey=key;btn.textContent="اضغط تاني للتأكيد";btn.classList.add("confirming");setTimeout(()=>{if(confirmKey===key){confirmKey=null;render()}},3000)}}
 var delAsk=null;
+function setGroupJoined(){const f=findGroup(nav.gid);if(!f)return;const nj=(document.getElementById("gjM")||{}).value;if(!/^\d{4}-\d{2}$/.test(nj||"")){flash("اختار الشهر");render();return}
+  const st=(f.g.students||[]).filter(x=>!x.left);for(const x of st){const er=joinedErr(f.t,f.g,x,nj);if(er){flash(er);render();return}}
+  st.forEach(x=>x.joined=nj);teacherImg=null;teacherPdf=null;save();flash("طلبة المجموعة بقوا من شهر "+monthName(nj)+" ✓");go({view:"group",gid:f.g.id})}
+function setStuJoined(ev,gid,sid){ev.preventDefault();const f=findGroup(gid);const x=f&&(f.g.students||[]).find(y=>y.id===sid);if(!x)return;const nj=document.getElementById("jn-"+sid).value;if(!/^\d{4}-\d{2}$/.test(nj||""))return;
+  const er=joinedErr(f.t,f.g,x,nj);if(er){flash(er);render();return}x.joined=nj;teacherImg=null;teacherPdf=null;save();flash("اتسجّل من شهر "+monthName(nj)+" ✓");render()}
 function delTeacherHard(id){const t=findTeacher(id),v=(document.getElementById("delName")||{}).value||"";if(!t)return;if(v.trim()!==t.name.trim()){flash("الاسم مش مطابق، ماتمسحش حاجة");render();return}delAsk=null;S.teachers=S.teachers.filter(x=>x.id!==id);save();flash("اتمسح المدرس");go({view:"home"})}
 function delGroupHard(){const f=findGroup(nav.gid);if(!f)return;const v=(document.getElementById("delName")||{}).value||"";if(v.trim()!==String(f.g.name).trim()){flash("الاسم مش مطابق، ماتمسحتش");render();return}delAsk=null;f.t.groups=f.t.groups.filter(x=>x.id!==f.g.id);save();flash("اتمسحت المجموعة");go({view:"teacher",tid:f.t.id})}
 function teacherLeft(id){const t=findTeacher(id);if(!t)return;const L=(document.getElementById("tlM")||{}).value;if(!/^\d{4}-\d{2}$/.test(L||"")){flash("اختار الشهر");render();return}
@@ -1186,8 +1263,9 @@ function teacherBack(id){const t=findTeacher(id);if(!t||!t.left)return;const L=t
   delete t.left;save();flash("المدرس رجع للسنتر ✓");render()}
 function delTeacher(id){twice("t"+id,()=>{S.teachers=S.teachers.filter(t=>t.id!==id);save();go({view:"home"})},event.target)}
 function delGroup(){const{t,g}=findGroup(nav.gid);twice("g"+g.id,()=>{t.groups=t.groups.filter(x=>x.id!==g.id);save();go({view:"teacher",tid:t.id})},event.target)}
-function addStu(e){e.preventDefault();const{g}=findGroup(nav.gid);g.students=g.students||[];
-  g.students.push({id:uid(),name:newStu.value.trim(),mobile:newMobile.value.trim(),phone:newPhone.value.trim(),joined:curMonth()});save();render();document.getElementById("newStu").focus()}
+function addStu(e){e.preventDefault();const{t,g}=findGroup(nav.gid);g.students=g.students||[];
+  const j=isLocked(t.id,payMonth)?curMonth():payMonth;if(j!==payMonth)flash("الشهر ده مقفول، فالطالب اتسجّل من "+monthName(j));
+  g.students.push({id:uid(),name:newStu.value.trim(),mobile:newMobile.value.trim(),phone:newPhone.value.trim(),joined:j});save();render();document.getElementById("newStu").focus()}
 function delStu(sid){const{t,g}=findGroup(nav.gid);twice("s"+sid,()=>{const x=(g.students||[]).find(y=>y.id===sid);if(!x)return;const m0=curMonth(),pre=g.id+"|";let history=false;if(isLocked(t.id,m0)&&hasPay(g,x,m0)){flash("الطالب دافع في شهر مقفول. افتح الشهر الأول.");render();return}
   Object.keys(S.payments).forEach(k=>{if(!k.startsWith(pre))return;const rec=S.payments[k];if(!rec||!hasPayV(rec[sid]))return;if(k.slice(pre.length)<m0)history=true;else delete rec[sid]});
   if(history||wasBefore(g,x,m0))x.left=m0;else g.students=g.students.filter(y=>y.id!==sid);save();render()},event.target)}
