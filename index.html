@@ -378,6 +378,7 @@ body{background:radial-gradient(900px 380px at 50% -200px,rgba(216,56,63,.10),tr
 :root[data-theme="light"] .glogo{mix-blend-mode:normal;background:#0E0F12;border-radius:20px;padding:12px 18px;filter:drop-shadow(0 12px 26px rgba(0,0,0,.18))}
 :root[data-theme="light"] .door,:root[data-theme="light"] .gform{box-shadow:0 10px 30px rgba(20,20,30,.08)}
 @media (prefers-reduced-motion:reduce){.glow,.door.own::after{animation:none}.glogo,.gname,.gq,.door,.gform{animation:none}}
+.logoutbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px;padding:14px;border-radius:16px;border:1px solid color-mix(in srgb,var(--bad) 35%,var(--line));background:transparent;color:var(--bad);font-weight:700;font-size:.95rem}.logoutbtn svg{width:18px;height:18px}.logoutbtn.confirming{background:var(--bad);color:#fff}
 .devline{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:.74rem;opacity:.8}
 .devline i{width:4px;height:4px;border-radius:50%;background:var(--accent);display:inline-block}
 .credit{font-size:.74rem;gap:2px}
@@ -558,7 +559,7 @@ function accountsBox(t){
    Leave it as null and the app works on the device only (local mode). */
 const FIREBASE_CONFIG={apiKey:"AIzaSyB3TNutgwCeZZ0mHygE0NI8yCh9m7x6-oI",authDomain:"jimswani-centers.firebaseapp.com",projectId:"jimswani-centers",storageBucket:"jimswani-centers.firebasestorage.app",messagingSenderId:"809726548597",appId:"1:809726548597:web:986921d2087b145af3f63c"};
 const CLOUD=!!(FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey);
-const APP_VERSION="2.1";
+const APP_VERSION="2.2";
 const DEV={name:"م/ محمد جمال",phone:"01069982196",title:"مهندس برمجيات · برامج حسابات السناتر",handle:"jimswani",fb:"https://www.facebook.com/profile.php?id=61588021126316",tiktok:"https://www.tiktok.com/@jimswani"};
 function devWa(){return "https://wa.me/2"+DEV.phone+"?text="+encodeURIComponent("السلام عليكم يا بشمهندس، شفت برنامج "+BRAND.name+" وعايز برنامج زيه لسنتري")}
 let db=null, ref=null, saveTimer=null, saving=false, pending=false, offline=false, dirty=false;
@@ -636,6 +637,7 @@ async function doLogin(e){
 const LOGIN_GEN="2"; // bump to sign every phone out once (they log in again from the entry screen)
 function loginGen(){try{return localStorage.getItem("center-loginGen")}catch(e){return LOGIN_GEN}}function setLoginGen(){try{localStorage.setItem("center-loginGen",LOGIN_GEN)}catch(e){}}
 function logout(){if(fauth)fauth.signOut()}
+function signOutNow(btn){twice("so",async()=>{try{devLock()}catch(e){}try{localStorage.removeItem("center-ac");localStorage.removeItem(lsKey())}catch(e){}ROLE=null;authChoice="";nav={view:"home"};try{if(fauth)await fauth.signOut()}catch(e){}render()},btn)}
 var authChoice="";
 function viewAuth(){
   const head=`<header class="brand"><img src="${LOGO}" alt="${esc(BRAND.name)}"><div class="sub">${esc(BRAND.name)}</div></header>`;
@@ -1954,7 +1956,8 @@ function viewSettings(){
   <button class="row" onclick="go({view:'templates'})"><span class="m"><h3>رسايل الواتساب</h3><span class="sub">صيغة التذكير والإيصال والتقفيلة وقايمة اللي مادفعوش</span></span><span class="chev">‹</span></button>
   ${backupBox()}
   <div class="sect">عن البرنامج</div>
-  <section class="form about"><div class="kv"><span>السنتر</span><b>${esc(BRAND.name)}</b></div><div class="kv" onclick="devTap()"><span>الإصدار</span><b dir="ltr">${APP_VERSION}</b></div><div class="kv"><span>البرمجة</span><span>${esc(DEV.name)}</span></div><div class="kv"><span>الدعم الفني</span><a class="phone" href="tel:${esc(DEV.phone)}" dir="ltr">${esc(DEV.phone)}</a></div></section>`}
+  <section class="form about"><div class="kv"><span>السنتر</span><b>${esc(BRAND.name)}</b></div><div class="kv" onclick="devTap()"><span>الإصدار</span><b dir="ltr">${APP_VERSION}</b></div><div class="kv"><span>البرمجة</span><span>${esc(DEV.name)}</span></div><div class="kv"><span>الدعم الفني</span><a class="phone" href="tel:${esc(DEV.phone)}" dir="ltr">${esc(DEV.phone)}</a></div></section>
+  <button class="logoutbtn" onclick="signOutNow(this)">${ic("lock")}<span>تسجيل الخروج</span></button>`}
 function viewTemplates(){
   const box=(k,title)=>`<section class="form"><h2>${title}</h2>
     <textarea id="tpl-${k}" class="tpl" oninput="tplPreview('${k}')">${esc(getTpl(k))}</textarea>
