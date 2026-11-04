@@ -795,9 +795,13 @@ async function buildTeacherPDF(t,m){
     g2.textAlign="left";g2.fillText("صفحة "+AR(i+1)+" من "+AR(N),ML,H-FOOT+58);
     const b=await new Promise(r=>c.toBlob(r,"image/jpeg",0.88));out.push({w:W,h:H,jpg:new Uint8Array(await b.arrayBuffer())})}
   return makePDF(out)}
+// WhatsApp garbles Arabic file names, so files get a Latin name
+function latinName(str){const T={"ا":"a","أ":"a","إ":"e","آ":"a","ب":"b","ت":"t","ث":"th","ج":"g","ح":"h","خ":"kh","د":"d","ذ":"z","ر":"r","ز":"z","س":"s","ش":"sh","ص":"s","ض":"d","ط":"t","ظ":"z","ع":"a","غ":"gh","ف":"f","ق":"q","ك":"k","ل":"l","م":"m","ن":"n","ه":"h","ة":"a","و":"o","ي":"y","ى":"a","ئ":"e","ؤ":"o","ء":"","٠":"0","١":"1","٢":"2","٣":"3","٤":"4","٥":"5","٦":"6","٧":"7","٨":"8","٩":"9"};
+  const out=String(str||"").replace(/^(مستر|م\s*\/|أ\s*\/|ا\s*\/|د\s*\/|دكتور|دكتورة|أستاذ|استاذ|ميس|مس)\s*/,"").split("").map(c=>c in T?T[c]:c).join("").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+  return out||"file"}
 var teacherPdf=null;
 async function prepareTeacherPDF(tid){const t=findTeacher(tid);if(!t)return;teacherPdf={tid,m:payMonth,msg:"جاري تجهيز الملف…"};render();
-  try{const blob=await buildTeacherPDF(t,payMonth);teacherPdf={tid,m:payMonth,blob,url:URL.createObjectURL(blob),type:"application/pdf",name:"تفاصيل "+t.name.replace(/[\\/:*?"<>|]/g,"-")+" - "+payMonth+".pdf",msg:""}}
+  try{const blob=await buildTeacherPDF(t,payMonth);teacherPdf={tid,m:payMonth,blob,url:URL.createObjectURL(blob),type:"application/pdf",name:latinName(BRAND.file)+"-"+latinName(t.name)+"-"+payMonth+".pdf",msg:""}}
   catch(e){teacherPdf={tid,m:payMonth,msg:"ماقدرتش أعمل الملف، جرّب تاني."}}render()}
 async function prepareBackup(){
   backupMsg="جاري تجهيز الصورة…";render();
