@@ -559,7 +559,7 @@ function accountsBox(t){
    Leave it as null and the app works on the device only (local mode). */
 const FIREBASE_CONFIG={apiKey:"AIzaSyB3TNutgwCeZZ0mHygE0NI8yCh9m7x6-oI",authDomain:"jimswani-centers.firebaseapp.com",projectId:"jimswani-centers",storageBucket:"jimswani-centers.firebasestorage.app",messagingSenderId:"809726548597",appId:"1:809726548597:web:986921d2087b145af3f63c"};
 const CLOUD=!!(FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey);
-const APP_VERSION="2.2";
+const APP_VERSION="2.3";
 const DEV={name:"م/ محمد جمال",phone:"01069982196",title:"مهندس برمجيات · برامج حسابات السناتر",handle:"jimswani",fb:"https://www.facebook.com/profile.php?id=61588021126316",tiktok:"https://www.tiktok.com/@jimswani"};
 function devWa(){return "https://wa.me/2"+DEV.phone+"?text="+encodeURIComponent("السلام عليكم يا بشمهندس، شفت برنامج "+BRAND.name+" وعايز برنامج زيه لسنتري")}
 let db=null, ref=null, saveTimer=null, saving=false, pending=false, offline=false, dirty=false;
@@ -685,7 +685,12 @@ async function devSeal(code){const k=S.settings.devk;if(!k||!code)return;const p
 async function devDocId(){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("devcode|"+BRAND.file));return [...new Uint8Array(b)].map(v=>v.toString(16).padStart(2,"0")).join("")}
 async function devPublish(){try{const k=S.settings.devk,c=S.settings.devc;if(!k||!c||!fsdb||!cuser)return;await fsdb.collection("devcodes").doc(await devDocId()).set({owner:cuser.uid,salt:k.salt,iv:k.iv,pri:k.pri,ct:c})}catch(e){}}
 var pendDev=null;
-async function devLoginOutside(sec){let d;try{const sn=await fsdb.collection("devcodes").doc(await devDocId()).get();if(!sn.exists)throw 0;d=sn.data()}catch(e){devErr="البرنامج ده لسه مااتفتحش في وضع المبرمج من جوه. ادخل مرة بكود التفعيل وافتح وضع المبرمج.";render();return}
+var devNeedAct=false;
+async function devLoginOutside(sec){const ae=document.getElementById("devAct"),act=ae?ae.value.trim():"";
+  if(act){try{pendDev=sec;pendCode=act;devAsk=false;setLoginGen();await fauth.signInWithEmailAndPassword(BRAND.account,act);devNeedAct=false}
+    catch(e){pendDev=null;pendCode=null;devAsk=true;devErr=e&&e.code&&/invalid|wrong|credential/.test(e.code)?"كود التفعيل غلط.":/network/.test((e&&e.code)||"")?"مفيش نت.":"حصل خطأ: "+((e&&e.code)||"");render()}return}
+  let d;try{const sn=await fsdb.collection("devcodes").doc(await devDocId()).get();if(!sn.exists)throw {code:"none"};d=sn.data()}
+  catch(e){devNeedAct=true;devErr=/permission/.test((e&&e.code)||"")?"قواعد Firebase الجديدة لسه متحطتش. اكتب كود التفعيل المرة دي.":"أول مرة بس: اكتب كود التفعيل كمان، وبعد كده رمزك لوحده هيكفي.";render();return}
   try{const aes=await devAes(sec,ub64(d.salt)),pri=await crypto.subtle.decrypt({name:"AES-GCM",iv:ub64(d.iv)},aes,ub64(d.pri)),pk=await crypto.subtle.importKey("pkcs8",pri,RSA,false,["decrypt"]);
     const code=new TextDecoder().decode(await crypto.subtle.decrypt(RSA,pk,ub64(d.ct)));pendDev=sec;devAsk=false;setLoginGen();await fauth.signInWithEmailAndPassword(BRAND.account,code)}
   catch(e){pendDev=null;devErr=e&&e.code&&/invalid|wrong|credential/.test(e.code)?"الكود المحفوظ قديم. ادخل بكود التفعيل مرة.":"ماقدرتش أفتح. جرّب تاني.";render()}}
@@ -699,7 +704,7 @@ async function devHash2(x){const k=await crypto.subtle.importKey("raw",new TextE
 async function devCheck(x){return DEV_KEY.startsWith("p2:")?(await devHash2(x))===DEV_KEY:(await devHash(x))===DEV_KEY}
 async function devHash(x){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("devkey|"+x));return [...new Uint8Array(b)].map(v=>v.toString(16).padStart(2,"0")).join("")}
 function devAskBox(){return `<div class="sheetbg" onclick="devAsk=false;render()"></div><div class="bsheet"><div class="grab"></div>
-  ${DEV_KEY?`<form onsubmit="devEnter(event)" class="pinform"><h2>${ic("key")} وضع المبرمج</h2><input id="devIn" type="password" autocomplete="off" placeholder="رمز المبرمج" dir="ltr">${devErr?`<div class="note">${esc(devErr)}</div>`:""}<div class="bar"><button class="btn">دخول</button><button type="button" class="btn ghost" onclick="devAsk=false;render()">إلغاء</button></div></form>`
+  ${DEV_KEY?`<form onsubmit="devEnter(event)" class="pinform"><h2>${ic("key")} وضع المبرمج</h2><input id="devIn" type="password" autocomplete="off" placeholder="رمز المبرمج" dir="ltr">${devNeedAct?`<input id="devAct" type="password" autocomplete="off" placeholder="كود التفعيل بتاع السنتر" dir="ltr">`:""}${devErr?`<div class="note">${esc(devErr)}</div>`:""}<div class="bar"><button class="btn">دخول</button><button type="button" class="btn ghost" onclick="devAsk=false;render()">إلغاء</button></div></form>`
   :devMade?`<div class="pinform"><h2>${ic("key")} الكود المشفّر بتاع رمزك</h2><div class="sub">ابعت الكود ده بس (مش الرمز نفسه) عشان يتثبّت في البرنامج. الكود ده مينفعش حد يرجّع منه الرمز.</div><div class="hashbox" dir="ltr">${esc(devMade)}</div><div class="bar"><button class="btn" onclick="try{navigator.clipboard.writeText('${devMade}')}catch(e){};this.textContent='اتنسخ ✓'">نسخ</button><button class="btn ghost" onclick="devAsk=false;devMade='';render()">قفل</button></div></div>`
   :`<form onsubmit="devMake(event)" class="pinform"><h2>${ic("key")} اعمل رمز المبرمج</h2><div class="sub">اختار رمز طويل (١٠ حروف وأرقام أو أكتر) وماتقولوش لحد. البرنامج هيطلعلك كود مشفّر تبعته عشان يتثبّت.</div><input id="devA" type="password" autocomplete="new-password" placeholder="الرمز" dir="ltr"><input id="devB" type="password" autocomplete="new-password" placeholder="اكتبه تاني" dir="ltr">${devErr?`<div class="note">${esc(devErr)}</div>`:""}<div class="bar"><button class="btn">اعمل الكود</button><button type="button" class="btn ghost" onclick="devAsk=false;render()">إلغاء</button></div></form>`}</div>`}
 async function devMake(e){e.preventDefault();const a=document.getElementById("devA").value,b=document.getElementById("devB").value;if(a.length<10){devErr="الرمز لازم يكون ١٠ حروف وأرقام على الأقل.";render();return}if(a!==b){devErr="الرمزين مش زي بعض.";render();return}devErr="";devMade=await devHash2(a);render()}
@@ -806,7 +811,7 @@ function staffGuide(){const st=(t,h,d)=>`<div class="gstep"><b class="num">${t}<
   ${st("١","دوس «+ إضافة سكرتير»","اكتب اسمه ورقم الواتساب بتاعه. البرنامج بيعمله كود لوحده، وتقدر تغيّره.")}
   ${st("٢","ابعتله على الواتساب","دوسة واحدة بتفتح شاته والرسالة جاهزة فيها اللينك وكوده. كود التفعيل بتاعك مش بيوصله.")}
   ${st("٣","هو يدخل","يفتح البرنامج، ويدوس «السكرتير»، ويكتب كوده. البرنامج بيفتح عنده على وضع السكرتير على طول، وكل ما يقفل يفتح بنفس الكود.")}
-  ${st("٤","تفتح كصاحب السنتر من موبايله","لازم «قفل البرنامج» يكون شغال عندك. دوس «قفل» تحت، واكتب الرقم السري بتاعك بدل كوده. البرنامج بيرجع يقفل لوحده بعد ٣ دقايق. السكرتير نفسه مايقدرش يخرج من وضع السكرتير.")}
+  ${st("٤","تفتح كصاحب السنتر من موبايله","لازم «قفل البرنامج» يكون شغال عندك. في الصفحة الرئيسية عنده دوس على اللوجو ٥ مرات ورا بعض، واكتب الرقم السري بتاعك بدل كوده. البرنامج بيرجع يقفل لوحده بعد ٣ دقايق. السكرتير نفسه مايقدرش يخرج من وضع السكرتير.")}
   ${st("٥","لو السكرتير مشي","دوس «إخراج» قصاد اسمه. كوده بيتلغي، والبرنامج والداتا بيتمسحوا من موبايله أول ما يتصل بالنت. ولو كلهم مشيوا دوس «كل السكرتارية مشيوا».")}
   ${st("٦","كوده بيشتغل على موبايل واحد","لو فتح بكوده من موبايل جديد، القديم بيخرج لوحده. ولو حسيت إن الكود اتعرف، اشيله وضيفه تاني بكود جديد.")}
   </div></details>`}
@@ -860,6 +865,7 @@ async function forgotPin(e){e.preventDefault();if(staffDevice()){pinForgot=false
   try{if(!CLOUD||!fauth)throw {code:"local"};await fauth.signInWithEmailAndPassword(BRAND.account,code);pendCode=code;
     delete S.settings.pins;ROLE="owner";pinForgot=false;save();flash("الرقم السري اتشال. اعمل رقم جديد من الإعدادات.");nav={view:"settings"};render()}
   catch(err){pinErr=err&&err.code==="local"?"كلّم الدعم الفني: "+DEV.phone:"كود التفعيل غلط.";render()}}
+var logoTaps=0,logoTapT=0;function logoTap(){if(!staffDevice())return;const n=Date.now();logoTaps=n-logoTapT<1500?logoTaps+1:1;logoTapT=n;if(logoTaps>=5){logoTaps=0;lockNow()}}
 function lockNow(){if(!pinsOn())return;ROLE=null;pinErr="";nav={view:"home"};render()}
 document.addEventListener("visibilitychange",()=>{if(document.hidden){lastHidden=Date.now();if(devMode){devLock();render()}}else if(pinsOn()&&ROLE&&lastHidden&&Date.now()-lastHidden>((staffDevice()&&ROLE==="owner")?60000:5*60000)){ROLE=null;nav={view:"home"};render()}});
 setInterval(()=>{if(staffDevice()&&pinsOn()&&ROLE==="owner"&&!document.hidden&&lastAct&&Date.now()-lastAct>3*60000){ROLE=null;nav={view:"home"};render()}},20000);
@@ -1009,7 +1015,7 @@ function ic(k){return `<svg viewBox="0 0 24 24" width="22" height="22" fill="non
 function navSection(v){return v==="home"?"home":["teachers","teacher","group","student","addTeacher","editTeacher","addGroup","editGroup"].includes(v)?"teachers":v==="unpaid"?"unpaid":v==="report"?"report":["settings","templates"].includes(v)?"settings":""}
 function navBar(){const cur=navSection(nav.view),n=S.teachers.length?unpaidList(curMonth()).length:0;
   const it=(k,label,js,badge)=>`<button class="${cur===k?"on":""}" onclick="${js}" aria-label="${label}">${ic(k)}<span>${label}</span>${badge?`<i class="bdg">${badge>99?"+99":arn(badge)}</i>`:""}</button>`;
-  return `<nav class="bnav">${it("home","الرئيسية","go({view:'home'})")}${it("teachers","المدرسين","go({view:'teachers'})")}${it("unpaid","مادفعش","payMonth=curMonth();go({view:'unpaid'})",n)}${isOwner()?it("report","التقارير","go({view:'report'})")+it("settings","الإعدادات","go({view:'settings'})"):`<button onclick="lockNow()" aria-label="قفل">${ic("lock")}<span>قفل</span></button>`}</nav>`}
+  return `<nav class="bnav">${it("home","الرئيسية","go({view:'home'})")}${it("teachers","المدرسين","go({view:'teachers'})")}${it("unpaid","مادفعش","payMonth=curMonth();go({view:'unpaid'})",n)}${isOwner()?it("report","التقارير","go({view:'report'})")+it("settings","الإعدادات","go({view:'settings'})"):""}</nav>`}
 function render(){
   const el=document.getElementById("app");try{document.body.classList.toggle("staffmode",!isOwner())}catch(e){}
   let v=nav.view;
@@ -1045,7 +1051,7 @@ function viewHome(){
   const ex=expOn()?expTotal(m):0,n=S.teachers.length?unpaidList(m).length:0,bd=backupDays(),pct=stu?pd/stu:0;
   const tile=(cls,js,icon,label,sub)=>`<button class="qa ${cls}" onclick="${js}"><span class="qi">${ic(icon)}</span><b>${label}</b><span class="sub">${sub}</span></button>`;
   return `
-  <header class="hero">${pinsOn()?`<button class="iconbtn" onclick="lockNow()" aria-label="قفل البرنامج">${ic("lock")}</button>`:'<span class="iconsp"></span>'}<img src="${LOGO}" alt="${esc(BRAND.name)} — ${esc(BRAND.latin)}" class="hlogo"><span class="iconsp"></span></header>
+  <header class="hero">${pinsOn()&&!staffDevice()?`<button class="iconbtn" onclick="lockNow()" aria-label="قفل البرنامج">${ic("lock")}</button>`:'<span class="iconsp"></span>'}<img src="${LOGO}" alt="${esc(BRAND.name)} — ${esc(BRAND.latin)}" class="hlogo" onclick="logoTap()"><span class="iconsp"></span></header>
   ${own?storiesBox():""}
   <div class="monthnav card" id="monthNav"><button onclick="shiftMonth(-1)" aria-label="الشهر اللي فات">›</button><div class="mn"><b>${monthName(m)}</b><span class="sub">${m===curMonth()?"النهاردة "+DAYS[wd]+" "+now.toLocaleDateString("ar-EG",{day:"numeric",month:"long"}):`<button class="linkbtn" onclick="payMonth=curMonth();render()">ارجع للشهر ده</button>`}</span></div><button onclick="shiftMonth(1)" aria-label="الشهر الجاي">‹</button></div>
   ${own?startBox()+closeDue():""}
