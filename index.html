@@ -300,6 +300,7 @@ body{background:radial-gradient(900px 380px at 50% -200px,rgba(216,56,63,.10),tr
 .okbox{display:flex;flex-direction:column;gap:10px;background:var(--ok-soft);border:1px solid #25563d;border-radius:14px;padding:12px}
 .devpanel{border-color:var(--accent)}.num.sm{font-size:.72rem}
 .ver{cursor:default;-webkit-user-select:none;user-select:none;padding:4px 10px}
+.kv.sdev{align-items:center;gap:12px;border-bottom:0;padding-top:8px;border-top:1px solid var(--line)}
 .devline{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:.74rem;opacity:.8}
 .devline i{width:4px;height:4px;border-radius:50%;background:var(--accent);display:inline-block}
 .credit{font-size:.74rem;gap:2px}
@@ -479,7 +480,7 @@ function accountsBox(t){
    Leave it as null and the app works on the device only (local mode). */
 const FIREBASE_CONFIG={apiKey:"AIzaSyB3TNutgwCeZZ0mHygE0NI8yCh9m7x6-oI",authDomain:"jimswani-centers.firebaseapp.com",projectId:"jimswani-centers",storageBucket:"jimswani-centers.firebasestorage.app",messagingSenderId:"809726548597",appId:"1:809726548597:web:986921d2087b145af3f63c"};
 const CLOUD=!!(FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey);
-const APP_VERSION="1.6";
+const APP_VERSION="1.8";
 const DEV={name:"م/ محمد جمال",phone:"01069982196",title:"مهندس برمجيات · برامج حسابات السناتر",handle:"jimswani",fb:"https://www.facebook.com/profile.php?id=61588021126316",tiktok:"https://www.tiktok.com/@jimswani"};
 function devWa(){return "https://wa.me/2"+DEV.phone+"?text="+encodeURIComponent("السلام عليكم يا بشمهندس، شفت برنامج "+BRAND.name+" وعايز برنامج زيه لسنتري")}
 let db=null, ref=null, saveTimer=null, saving=false, pending=false, offline=false, dirty=false;
@@ -576,7 +577,7 @@ Promise.resolve().then(async()=>{ // runs after the whole script has loaded
 /* ---------- views ---------- */
 function go(v){nav=v;rowOpen=null;partEdit=null;window.scrollTo(0,0);render()}
 /* ---------- developer mode (hidden) ---------- */
-const DEV_KEY=""; // SHA-256 of "devkey|"+secret — the developer sends this, never the secret itself
+const DEV_KEY="3ee9dbaf411b2e235e8f2cef879e3b53ab74d76b57c130a146409d104470cd09"; // SHA-256 of "devkey|"+secret — the developer sends this, never the secret itself
 var devTaps=0,devTapT=0,devAsk=false,devMode=false,devErr="",devMade="",devDone=null;
 function devTap(){const n=Date.now();devTaps=n-devTapT<1500?devTaps+1:1;devTapT=n;if(devTaps>=5){devTaps=0;devAsk=true;devErr="";devMade="";render()}}
 async function devHash(x){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("devkey|"+x));return [...new Uint8Array(b)].map(v=>v.toString(16).padStart(2,"0")).join("")}
@@ -609,6 +610,9 @@ function devCard(){return `<section class="devcard"><div class="dvh"><span class
   <div class="dvb"><a class="btn wa" href="${devWa()}" target="_blank" rel="noopener">واتساب</a><a class="btn ghost" href="tel:${esc(DEV.phone)}">اتصال <span dir="ltr" class="num">${esc(DEV.phone)}</span></a></div>
   <div class="dvs"><a href="${DEV.fb}" target="_blank" rel="noopener">Facebook</a><a href="${DEV.tiktok}" target="_blank" rel="noopener">TikTok @${esc(DEV.handle)}</a></div></section>`}
 var ROLE=null,pinErr="",pinTries=0,pinWait=0,pinForgot=false,lastHidden=0;
+function staffDevice(){try{return localStorage.getItem("center-staffDevice")==="1"}catch(e){return false}}
+function toggleStaffDevice(){const on=!staffDevice();try{if(on)localStorage.setItem("center-staffDevice","1");else localStorage.removeItem("center-staffDevice")}catch(e){}
+  if(on){flash("الموبايل ده بقى للموظف ✓");lockNow()}else{flash("الموبايل ده رجع عادي ✓");render()}}
 function pinsOn(){const p=S.settings&&S.settings.pins;return !!(p&&p.owner)}
 function isOwner(){return !pinsOn()||ROLE==="owner"}
 function needPin(){return pinsOn()&&!ROLE}
@@ -623,16 +627,18 @@ function viewLock(){const wait=pinWait>Date.now();
     <input id="pinIn" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="8" required class="pinbox"${wait?" disabled":""}>
     ${pinErr?`<div class="note">${esc(pinErr)}</div>`:""}
     <button class="btn big"${wait?" disabled":""}>دخول</button>
-    <button type="button" class="linkbtn" onclick="pinForgot=true;pinErr='';render()">نسيت الرقم السري؟</button></form>`}</div>`}
+    ${staffDevice()?"":`<button type="button" class="linkbtn" onclick="pinForgot=true;pinErr='';render()">نسيت الرقم السري؟</button>`}</form>`}</div>`}
 async function unlockPin(e){e.preventDefault();if(pinWait>Date.now())return;const v=(document.getElementById("pinIn")||{}).value||"";const h=await hashPin(v.trim()),P=S.settings.pins||{};
   if(h===P.owner){ROLE="owner"}else if(P.staff&&h===P.staff){ROLE="staff"}else{pinTries++;if(pinTries>=5){pinTries=0;pinWait=Date.now()+30000;pinErr="غلط ٥ مرات. استنى ٣٠ ثانية وجرّب تاني.";setTimeout(render,30500)}else pinErr="الرقم السري غلط.";render();return}
   pinErr="";pinTries=0;nav={view:"home"};render()}
-async function forgotPin(e){e.preventDefault();const code=(document.getElementById("fgCode")||{}).value.trim();pinErr="";
+async function forgotPin(e){e.preventDefault();if(staffDevice()){pinForgot=false;render();return}const code=(document.getElementById("fgCode")||{}).value.trim();pinErr="";
   try{if(!CLOUD||!fauth)throw {code:"local"};await fauth.signInWithEmailAndPassword(BRAND.account,code);
     delete S.settings.pins;ROLE="owner";pinForgot=false;save();flash("الرقم السري اتشال. اعمل رقم جديد من الإعدادات.");nav={view:"settings"};render()}
   catch(err){pinErr=err&&err.code==="local"?"كلّم الدعم الفني: "+DEV.phone:"كود التفعيل غلط.";render()}}
 function lockNow(){if(!pinsOn())return;ROLE=null;pinErr="";nav={view:"home"};render()}
-document.addEventListener("visibilitychange",()=>{if(document.hidden){lastHidden=Date.now()}else if(pinsOn()&&ROLE&&lastHidden&&Date.now()-lastHidden>5*60000){ROLE=null;nav={view:"home"};render()}});
+document.addEventListener("visibilitychange",()=>{if(document.hidden){lastHidden=Date.now()}else if(pinsOn()&&ROLE&&lastHidden&&Date.now()-lastHidden>((staffDevice()&&ROLE==="owner")?60000:5*60000)){ROLE=null;nav={view:"home"};render()}});
+setInterval(()=>{if(staffDevice()&&pinsOn()&&ROLE==="owner"&&!document.hidden&&lastAct&&Date.now()-lastAct>3*60000){ROLE=null;nav={view:"home"};render()}},20000);
+var lastAct=Date.now();["pointerdown","keydown"].forEach(ev=>document.addEventListener(ev,()=>{lastAct=Date.now()},{passive:true}));
 async function savePins(e){e.preventDefault();const o=(document.getElementById("pnO").value||"").trim(),o2=(document.getElementById("pnO2").value||"").trim(),st=(document.getElementById("pnS").value||"").trim();
   const ok=x=>/^\d{4,8}$/.test(x);
   if(!ok(o)){flash("الرقم السري لازم يكون من ٤ لـ ٨ أرقام");render();return}if(o!==o2){flash("الرقمين مش زي بعض");render();return}
@@ -660,7 +666,8 @@ function pinBox(){const P=S.settings.pins;
     <div class="kv"><span>رقم الموظف</span>${P.staff?'<span class="pill okp">موجود</span>':'<span class="sub">مفيش</span>'}</div>
     ${staffEdit?`<form onsubmit="saveStaffPin(event)" class="bar"><input id="pnS2" type="password" inputmode="numeric" maxlength="8" placeholder="رقم الموظف" autocomplete="new-password"><button class="btn">حفظ</button><button type="button" class="btn ghost" onclick="staffEdit=false;render()">إلغاء</button></form>`:""}
     <div class="bar"><button class="btn ghost" onclick="lockNow()">قفل دلوقتي</button><button class="btn ghost" onclick="pinEdit=true;render()">تغيير رقمي</button><button class="btn ghost" onclick="staffEdit=true;render()">${P.staff?"تغيير رقم الموظف":"+ رقم للموظف"}</button>${P.staff?`<button class="x" onclick="removeStaffPin(this)">شيل رقم الموظف</button>`:""}<button class="x" onclick="removePins(this)">شيل الرقم السري</button></div>
-    <div class="sub">الموظف بيسجّل الدفع ويبعت الإيصالات والتذكير ويضيف طلبة، ومش بيشوف النسب والأرباح والتقارير والإعدادات. البرنامج بيتقفل لوحده لو اتقفل أكتر من ٥ دقايق.</div></section>`}
+    <div class="sub">الموظف بيسجّل الدفع ويبعت الإيصالات والتذكير ويضيف طلبة، ومش بيشوف النسب والأرباح والتقارير والإعدادات. البرنامج بيتقفل لوحده لو اتقفل أكتر من ٥ دقايق.</div>
+    <div class="kv sdev"><div><b>الموبايل ده للموظف</b><div class="sub">${P.staff?"شغّله على موبايل السكرتير: مفيش «نسيت الرقم السري»، ولو فتحت برقمك عليه بيتقفل لوحده بعد ٣ دقايق.":"اعمل رقم للموظف الأول."}</div></div><button class="switch ${staffDevice()?"on":""}" role="switch" aria-checked="${staffDevice()}" onclick="toggleStaffDevice()"${P.staff||staffDevice()?"":" disabled"} aria-label="الموبايل ده للموظف"><i></i></button></div></section>`}
 /* ---------- expenses (optional) ---------- */
 function expOn(){return !!(S.settings&&S.settings.expOn)}
 function expList(m){return ((S.expenses||{})[m])||[]}
