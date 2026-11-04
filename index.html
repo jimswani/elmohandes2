@@ -296,6 +296,10 @@ body{background:radial-gradient(900px 380px at 50% -200px,rgba(216,56,63,.10),tr
 .monthnav>button{background:var(--bg)}
 .sect{font-size:.78rem;font-weight:700;color:var(--muted);letter-spacing:.02em;margin:6px 4px -10px}
 .ttabs button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;font-size:.85rem}.ttabs button svg{width:20px;height:20px}.ttabs button i{font-style:normal;font-size:.72rem;opacity:.75;min-height:1em}
+.hashbox{font-family:ui-monospace,Menlo,monospace;font-size:.78rem;word-break:break-all;background:var(--bg);border:1px dashed var(--line);border-radius:12px;padding:10px;user-select:all}.hashbox.code{font-size:1.4rem;letter-spacing:.1em;text-align:center}
+.okbox{display:flex;flex-direction:column;gap:10px;background:var(--ok-soft);border:1px solid #25563d;border-radius:14px;padding:12px}
+.devpanel{border-color:var(--accent)}.num.sm{font-size:.72rem}
+.ver{cursor:default;-webkit-user-select:none;user-select:none;padding:4px 10px}
 .devline{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:.74rem;opacity:.8}
 .devline i{width:4px;height:4px;border-radius:50%;background:var(--accent);display:inline-block}
 .credit{font-size:.74rem;gap:2px}
@@ -475,7 +479,7 @@ function accountsBox(t){
    Leave it as null and the app works on the device only (local mode). */
 const FIREBASE_CONFIG={apiKey:"AIzaSyB3TNutgwCeZZ0mHygE0NI8yCh9m7x6-oI",authDomain:"jimswani-centers.firebaseapp.com",projectId:"jimswani-centers",storageBucket:"jimswani-centers.firebasestorage.app",messagingSenderId:"809726548597",appId:"1:809726548597:web:986921d2087b145af3f63c"};
 const CLOUD=!!(FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey);
-const APP_VERSION="1.4";
+const APP_VERSION="1.6";
 const DEV={name:"م/ محمد جمال",phone:"01069982196",title:"مهندس برمجيات · برامج حسابات السناتر",handle:"jimswani",fb:"https://www.facebook.com/profile.php?id=61588021126316",tiktok:"https://www.tiktok.com/@jimswani"};
 function devWa(){return "https://wa.me/2"+DEV.phone+"?text="+encodeURIComponent("السلام عليكم يا بشمهندس، شفت برنامج "+BRAND.name+" وعايز برنامج زيه لسنتري")}
 let db=null, ref=null, saveTimer=null, saving=false, pending=false, offline=false, dirty=false;
@@ -571,7 +575,34 @@ Promise.resolve().then(async()=>{ // runs after the whole script has loaded
 
 /* ---------- views ---------- */
 function go(v){nav=v;rowOpen=null;partEdit=null;window.scrollTo(0,0);render()}
-function credit(){return `<footer class="credit"><span class="devline"><i></i>برمجة ${esc(DEV.name)}</span><span class="ver">${APP_VERSION}</span></footer>`}
+/* ---------- developer mode (hidden) ---------- */
+const DEV_KEY=""; // SHA-256 of "devkey|"+secret — the developer sends this, never the secret itself
+var devTaps=0,devTapT=0,devAsk=false,devMode=false,devErr="",devMade="",devDone=null;
+function devTap(){const n=Date.now();devTaps=n-devTapT<1500?devTaps+1:1;devTapT=n;if(devTaps>=5){devTaps=0;devAsk=true;devErr="";devMade="";render()}}
+async function devHash(x){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("devkey|"+x));return [...new Uint8Array(b)].map(v=>v.toString(16).padStart(2,"0")).join("")}
+function devAskBox(){return `<div class="sheetbg" onclick="devAsk=false;render()"></div><div class="bsheet"><div class="grab"></div>
+  ${DEV_KEY?`<form onsubmit="devEnter(event)" class="pinform"><h2>${ic("key")} وضع المبرمج</h2><input id="devIn" type="password" autocomplete="off" placeholder="رمز المبرمج" dir="ltr">${devErr?`<div class="note">${esc(devErr)}</div>`:""}<div class="bar"><button class="btn">دخول</button><button type="button" class="btn ghost" onclick="devAsk=false;render()">إلغاء</button></div></form>`
+  :devMade?`<div class="pinform"><h2>${ic("key")} الكود المشفّر بتاع رمزك</h2><div class="sub">ابعت الكود ده بس (مش الرمز نفسه) عشان يتثبّت في البرنامج. الكود ده مينفعش حد يرجّع منه الرمز.</div><div class="hashbox" dir="ltr">${esc(devMade)}</div><div class="bar"><button class="btn" onclick="try{navigator.clipboard.writeText('${devMade}')}catch(e){};this.textContent='اتنسخ ✓'">نسخ</button><button class="btn ghost" onclick="devAsk=false;devMade='';render()">قفل</button></div></div>`
+  :`<form onsubmit="devMake(event)" class="pinform"><h2>${ic("key")} اعمل رمز المبرمج</h2><div class="sub">اختار رمز طويل (١٠ حروف وأرقام أو أكتر) وماتقولوش لحد. البرنامج هيطلعلك كود مشفّر تبعته عشان يتثبّت.</div><input id="devA" type="password" autocomplete="new-password" placeholder="الرمز" dir="ltr"><input id="devB" type="password" autocomplete="new-password" placeholder="اكتبه تاني" dir="ltr">${devErr?`<div class="note">${esc(devErr)}</div>`:""}<div class="bar"><button class="btn">اعمل الكود</button><button type="button" class="btn ghost" onclick="devAsk=false;render()">إلغاء</button></div></form>`}</div>`}
+async function devMake(e){e.preventDefault();const a=document.getElementById("devA").value,b=document.getElementById("devB").value;if(a.length<10){devErr="الرمز لازم يكون ١٠ حروف وأرقام على الأقل.";render();return}if(a!==b){devErr="الرمزين مش زي بعض.";render();return}devErr="";devMade=await devHash(a);render()}
+async function devEnter(e){e.preventDefault();const v=document.getElementById("devIn").value;if(await devHash(v)!==DEV_KEY){devErr="الرمز غلط.";render();return}
+  devAsk=false;devMode=true;devErr="";if(pinsOn()&&ROLE!=="owner")ROLE="owner";go({view:"settings"});setTimeout(()=>{const d=document.getElementById("devPanel");if(d)d.scrollIntoView({block:"start"})},80)}
+function devPanel(){if(!devMode)return "";const em=BRAND.account,uid=cuser&&cuser.uid||"—";
+  return `<div class="sect">وضع المبرمج</div><section class="form devpanel" id="devPanel"><div class="bar" style="justify-content:space-between"><h2>${ic("key")} وضع المبرمج</h2><button class="btn ghost" onclick="devMode=false;devDone=null;render()">قفل</button></div>
+  <div class="kv"><span>الحساب</span><b dir="ltr" class="num">${esc(em)}</b></div><div class="kv"><span>UID</span><b dir="ltr" class="num sm">${esc(uid)}</b></div>
+  ${devDone?`<div class="okbox"><b>✓ كود التفعيل اتغيّر</b><div class="hashbox code" dir="ltr">${esc(devDone)}</div><div class="sub">قول الكود لصاحب السنتر بنفسك. أي موبايل تاني هيطلبه في خلال ساعة تقريبًا.</div><div class="bar"><button class="btn ghost" onclick="try{navigator.clipboard.writeText('${esc(devDone)}')}catch(e){};this.textContent='اتنسخ ✓'">نسخ</button><button class="btn ghost" onclick="devDone=null;render()">تمام</button></div></div>`
+  :`<form onsubmit="devChange(event)" class="pinform"><b>تغيير كود التفعيل</b><input id="dvCur" type="password" autocomplete="off" placeholder="الكود الحالي" dir="ltr" required>
+   <div class="bar"><input id="dvNew" autocomplete="off" placeholder="الكود الجديد" dir="ltr" required style="flex:1"><button type="button" class="btn ghost" onclick="const c=devRand();document.getElementById('dvNew').value=c;document.getElementById('dvNew2').value=c">عشوائي</button></div>
+   <input id="dvNew2" autocomplete="off" placeholder="اكتب الكود الجديد تاني" dir="ltr" required>${devErr?`<div class="note">${esc(devErr)}</div>`:""}<button class="btn" id="dvGo">غيّر الكود</button></form>`}</section>`}
+function devRand(){const L="ABCDEFGHJKMNPQRSTUVWXYZ",a=new Uint32Array(9);crypto.getRandomValues(a);let s="";for(let i=0;i<3;i++)s+=L[a[i]%L.length];s+="-";for(let i=3;i<9;i++)s+=a[i]%10;return s}
+async function devChange(e){e.preventDefault();const cur=document.getElementById("dvCur").value,nw=document.getElementById("dvNew").value.trim(),nw2=document.getElementById("dvNew2").value.trim();devErr="";
+  if(nw.length<6){devErr="الكود الجديد لازم يكون ٦ حروف أو أرقام على الأقل.";render();return}if(nw!==nw2){devErr="الكود الجديد مش زي التأكيد.";render();return}if(nw===cur){devErr="الكود الجديد زي القديم.";render();return}
+  if(!(CLOUD&&fauth&&fauth.currentUser)){devErr="لازم البرنامج يكون متفعّل ومتصل بالنت.";render();return}
+  const b=document.getElementById("dvGo");if(b){b.disabled=true;b.textContent="جاري التغيير…"}
+  try{const u=fauth.currentUser;await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(BRAND.account,cur));await u.updatePassword(nw);devDone=nw}
+  catch(err){const c=(err&&err.code)||"";devErr=/invalid|wrong|credential|mismatch/.test(c)?"الكود الحالي غلط.":/weak/.test(c)?"الكود الجديد ضعيف، خليه أطول.":/network/.test(c)?"مفيش نت. جرّب تاني.":/too-many/.test(c)?"محاولات كتير، استنى شوية.":"حصل خطأ: "+c}
+  render()}
+function credit(){return `<footer class="credit"><span class="devline"><i></i>برمجة ${esc(DEV.name)}</span><span class="ver" onclick="devTap()">${APP_VERSION}</span></footer>${devAsk?devAskBox():""}`}
 function devInit(){return "م ج"}
 function devCard(){return `<section class="devcard"><div class="dvh"><span class="devava">${esc(devInit())}</span><div><span class="sub">صمّم البرنامج وبرمجه</span><h2>${esc(DEV.name)}</h2><span class="sub">${esc(DEV.title)}</span></div></div>
   <div class="sub">عايز برنامج زي ده لسنترك أو لمكان شغلك؟ كلّمني.</div>
@@ -612,6 +643,9 @@ async function saveStaffPin(e){e.preventDefault();const st=(document.getElementB
 function removeStaffPin(btn){twice("rsp",()=>{delete S.settings.pins.staff;save();flash("اتشال رقم الموظف");render()},btn)}
 function removePins(btn){twice("rpn",()=>{delete S.settings.pins;ROLE=null;save();flash("اتشال الرقم السري");render()},btn)}
 var pinEdit=false,staffEdit=false;
+function codeReqWa(){return "https://wa.me/2"+DEV.phone+"?text="+encodeURIComponent("السلام عليكم، عايز أغيّر كود التفعيل بتاع برنامج "+BRAND.name+"\nالحساب: "+BRAND.file)}
+function codeBox(){return `<section class="form"><div class="bar" style="justify-content:space-between"><div><h2>${ic("key")} كود التفعيل</h2><div class="sub">الكود اللي البرنامج بيتفعّل بيه على أي موبايل. تغييره بيتم من الدعم الفني.</div></div>
+  <a class="btn ghost" href="${codeReqWa()}" target="_blank" rel="noopener">طلب تغيير الكود</a></div></section>`}
 function pinBox(){const P=S.settings.pins;
   if((!P||!P.owner)&&!pinEdit)return `<section class="form"><div class="bar" style="justify-content:space-between"><div><h2>${ic("lock")} الرقم السري</h2><div class="sub">مش شغال. لو حابب البرنامج يفتح برقم سري، أو يبقى في رقم للموظف.</div></div><button class="btn" onclick="pinEdit=true;render()">تشغيل</button></div></section>`;
   if(!P||!P.owner||pinEdit)return `<section class="form"><h2>${ic("lock")} الرقم السري</h2>
@@ -733,7 +767,7 @@ function themeBox(){const p=themePref(),card=(v,label,sub)=>`<button class="thc 
 function initials(n){return (String(n||"").replace(/^(مستر|م\s*\/|أ\s*\/|ميس|مس|دكتور|د\s*\/)\s*/,"").trim()[0])||"؟"}
 function storiesBox(){const m=payMonth,T=S.teachers.filter(t=>tActive(t,m));if(T.length<1)return "";
   return `<div class="stories" role="list">${T.map(t=>{const a=teacherMonth(t,m),p=a.stu?a.paid/a.stu:0,done=a.stu&&a.paid===a.stu;return `<button class="story${done?" done":""}" role="listitem" onclick="go({view:'teacher',tid:'${t.id}'})"><span class="sring">${ring(p,68,4,done?"var(--ok)":"var(--accent)")}<i>${esc(initials(t.name))}</i></span><span class="sname">${esc(t.name.replace(/^(مستر|م\s*\/|أ\s*\/|ميس|مس|دكتور|د\s*\/)\s*/,"").split(" ").slice(0,2).join(" "))}</span></button>`}).join("")}</div>`}
-var IC={home:'<path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/>',teachers:'<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.6c3 .2 5.5 2 5.5 5.4"/>',unpaid:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',report:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',lock:'<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',phone:'<path d="M5 4h3l1.5 4.5-2 1.2a11 11 0 0 0 6.8 6.8l1.2-2L20 16v3a1.5 1.5 0 0 1-1.6 1.5C10.6 20 4 13.4 3.5 5.6A1.5 1.5 0 0 1 5 4z"/>',search:'<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>',chat:'<path d="M4 18.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8z"/><path d="M8.5 9h7M8.5 12h4.5"/>',receipt:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',half:'<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17" /><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/>',user:'<circle cx="12" cy="8" r="3.8"/><path d="M4.5 20.5c.8-4 3.8-6 7.5-6s6.7 2 7.5 6"/>',plus:'<path d="M12 5v14M5 12h14"/>',backup:'<path d="M12 3v11"/><path d="m7.5 9.5 4.5 4.5 4.5-4.5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>'};
+var IC={home:'<path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/>',teachers:'<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.6c3 .2 5.5 2 5.5 5.4"/>',unpaid:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',report:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',lock:'<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',key:'<circle cx="8" cy="15" r="4"/><path d="m11 12 8-8M16 7l2 2M14 9l2 2"/>',phone:'<path d="M5 4h3l1.5 4.5-2 1.2a11 11 0 0 0 6.8 6.8l1.2-2L20 16v3a1.5 1.5 0 0 1-1.6 1.5C10.6 20 4 13.4 3.5 5.6A1.5 1.5 0 0 1 5 4z"/>',search:'<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>',chat:'<path d="M4 18.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8z"/><path d="M8.5 9h7M8.5 12h4.5"/>',receipt:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',half:'<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17" /><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/>',user:'<circle cx="12" cy="8" r="3.8"/><path d="M4.5 20.5c.8-4 3.8-6 7.5-6s6.7 2 7.5 6"/>',plus:'<path d="M12 5v14M5 12h14"/>',backup:'<path d="M12 3v11"/><path d="m7.5 9.5 4.5 4.5 4.5-4.5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>'};
 function ic(k){return `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[k]}</svg>`}
 function navSection(v){return v==="home"?"home":["teachers","teacher","group","student","addTeacher","editTeacher","addGroup","editGroup"].includes(v)?"teachers":v==="unpaid"?"unpaid":v==="report"?"report":["settings","templates"].includes(v)?"settings":""}
 function navBar(){const cur=navSection(nav.view),n=S.teachers.length?unpaidList(curMonth()).length:0;
@@ -1658,17 +1692,19 @@ function previewVars(k){if(k==="unpaid"){const m=payMonth,l=unpaidList(m);const 
   if(k==="closing"){const t=S.teachers.find(x=>(x.groups||[]).some(g=>activeSt(g).length))||S.teachers[0];if(t)return closeVars(t,payMonth);return{"المدرس":"مستر أحمد","الشهر":monthName(payMonth),"عدد_الطلبة":"٢٥","دفعوا":"٢٠","المحصل":"٥١٠٠","نصيب_السنتر":"١٣٠٠","صافي_المدرس":"٣٨٠٠","الاستلام":"","المواد":"كيمياء","السنتر":BRAND.name}}const c=sampleCtx(),v=tplVars(c.t,c.g,c.x,payMonth);if(k==="reminder"){v["الباقي"]=v["الاشتراك"];v["المدفوع"]="٠"}else{v["المدفوع"]=v["الاشتراك"];v["الباقي"]="٠"}return v}
 function viewSettings(){
   return `<div class="ptitle"><h1>الإعدادات</h1></div>
+  ${devPanel()}
   <div class="sect">الشكل</div>
   ${themeBox()}
   <div class="sect">الأمان</div>
   ${pinBox()}
+  ${codeBox()}
   <div class="sect">الحسابات</div>
   ${expBox()}
   <div class="sect">الرسايل والبيانات</div>
   <button class="row" onclick="go({view:'templates'})"><span class="m"><h3>رسايل الواتساب</h3><span class="sub">صيغة التذكير والإيصال والتقفيلة وقايمة اللي مادفعوش</span></span><span class="chev">‹</span></button>
   ${backupBox()}
   <div class="sect">عن البرنامج</div>
-  <section class="form about"><div class="kv"><span>السنتر</span><b>${esc(BRAND.name)}</b></div><div class="kv"><span>الإصدار</span><b dir="ltr">${APP_VERSION}</b></div><div class="kv"><span>البرمجة</span><span>${esc(DEV.name)}</span></div><div class="kv"><span>الدعم الفني</span><a class="phone" href="tel:${esc(DEV.phone)}" dir="ltr">${esc(DEV.phone)}</a></div></section>`}
+  <section class="form about"><div class="kv"><span>السنتر</span><b>${esc(BRAND.name)}</b></div><div class="kv" onclick="devTap()"><span>الإصدار</span><b dir="ltr">${APP_VERSION}</b></div><div class="kv"><span>البرمجة</span><span>${esc(DEV.name)}</span></div><div class="kv"><span>الدعم الفني</span><a class="phone" href="tel:${esc(DEV.phone)}" dir="ltr">${esc(DEV.phone)}</a></div></section>`}
 function viewTemplates(){
   const box=(k,title)=>`<section class="form"><h2>${title}</h2>
     <textarea id="tpl-${k}" class="tpl" oninput="tplPreview('${k}')">${esc(getTpl(k))}</textarea>
