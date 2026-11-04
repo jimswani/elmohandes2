@@ -379,6 +379,7 @@ body{background:radial-gradient(900px 380px at 50% -200px,rgba(216,56,63,.10),tr
 :root[data-theme="light"] .door,:root[data-theme="light"] .gform{box-shadow:0 10px 30px rgba(20,20,30,.08)}
 @media (prefers-reduced-motion:reduce){.glow,.door.own::after{animation:none}.glogo,.gname,.gq,.door,.gform{animation:none}}
 .logoutbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px;padding:14px;border-radius:16px;border:1px solid color-mix(in srgb,var(--bad) 35%,var(--line));background:transparent;color:var(--bad);font-weight:700;font-size:.95rem}.logoutbtn svg{width:18px;height:18px}.logoutbtn.confirming{background:var(--bad);color:#fff}
+.ver,.nosel{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
 .devline{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:.74rem;opacity:.8}
 .devline i{width:4px;height:4px;border-radius:50%;background:var(--accent);display:inline-block}
 .credit{font-size:.74rem;gap:2px}
@@ -559,14 +560,14 @@ function accountsBox(t){
    Leave it as null and the app works on the device only (local mode). */
 const FIREBASE_CONFIG={apiKey:"AIzaSyB3TNutgwCeZZ0mHygE0NI8yCh9m7x6-oI",authDomain:"jimswani-centers.firebaseapp.com",projectId:"jimswani-centers",storageBucket:"jimswani-centers.firebasestorage.app",messagingSenderId:"809726548597",appId:"1:809726548597:web:986921d2087b145af3f63c"};
 const CLOUD=!!(FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey);
-const APP_VERSION="2.3";
+const APP_VERSION="2.5";
 const DEV={name:"م/ محمد جمال",phone:"01069982196",title:"مهندس برمجيات · برامج حسابات السناتر",handle:"jimswani",fb:"https://www.facebook.com/profile.php?id=61588021126316",tiktok:"https://www.tiktok.com/@jimswani"};
 function devWa(){return "https://wa.me/2"+DEV.phone+"?text="+encodeURIComponent("السلام عليكم يا بشمهندس، شفت برنامج "+BRAND.name+" وعايز برنامج زيه لسنتري")}
 let db=null, ref=null, saveTimer=null, saving=false, pending=false, offline=false, dirty=false;
 let fsdb=null, fauth=null, cuser=null, authState=CLOUD?"loading":"ready", authErr="", lastWritten={}, unsubs=[];
 function lsKey(){return "center-main"+(cuser?"-"+cuser.uid:"")}
-function loadLocal(){try{const r=localStorage.getItem(lsKey());S=r?JSON.parse(r):{teachers:[],attendance:{},payments:{}}}catch(e){}ensureS();resetUndo()}
-function save(){
+function loadLocal(){try{const r=localStorage.getItem(lsKey());S=r?JSON.parse(r):{teachers:[],attendance:{},payments:{}}}catch(e){}ensureS();resetUndo();if(cuser&&!getGood())keepGood(S)}
+function save(){if(wiping)return;
   noteChange();
   try{localStorage.setItem(lsKey(),JSON.stringify(S))}catch(e){}
   if(!(CLOUD&&cuser))return;
@@ -582,7 +583,9 @@ function splitState(){
 }
 function docRef(key){const base=fsdb.collection("centers").doc(cuser.uid);return key==="core"?base:base.collection("months").doc(key.slice(2))}
 async function flush(){saveTimer=null;
-  if(!(CLOUD&&cuser))return;
+  if(!(CLOUD&&cuser)||wiping||!coreLoaded)return;
+  try{const was=lastWritten.core?JSON.parse(lastWritten.core):null;if(was&&(was.teachers||[]).length&&!(S.teachers||[]).length&&!allowEmpty){dirty=false;return}}catch(e){}
+  allowEmpty=false;
   if(saving){pending=true;return}
   saving=true;
   try{
@@ -615,23 +618,28 @@ async function startCloud(){
     authState="ready";render();subscribe();
   });
 }
-function subscribe(){
+var coreLoaded=false,wiping=false,allowEmpty=false,recoverOffer=null;
+function goodKey(){return "center-good"+(cuser?"-"+cuser.uid:"")}
+function keepGood(x){try{if(x&&Array.isArray(x.teachers)&&x.teachers.length)localStorage.setItem(goodKey(),JSON.stringify({at:Date.now(),d:x}))}catch(e){}}
+function getGood(){try{const g=JSON.parse(localStorage.getItem(goodKey())||"null");return g&&g.d&&g.d.teachers&&g.d.teachers.length?g:null}catch(e){return null}}
+function subscribe(){coreLoaded=false;
   const base=fsdb.collection("centers").doc(cuser.uid);
   let core=null,months={},exps={};
-  const apply=()=>{if(dirty||saving)return;
+  const apply=()=>{if(dirty||saving)return;if(core===null){return}
     const pay={};for(const m in months)Object.assign(pay,months[m]);
     S={teachers:(core&&core.teachers)||S.teachers||[],locks:(core&&core.locks)||S.locks||{},payouts:(core&&core.payouts)||S.payouts||{},settings:(core&&core.settings)||S.settings||{},attendance:{},payments:core||Object.keys(months).length?pay:(S.payments||{}),expenses:core||Object.keys(months).length?exps:(S.expenses||{})};
-    ensureS();lastWritten=splitState();resetUndo();if(pendStaff){try{useStaff()}catch(x){}}if(pendDev){const sec=pendDev;pendDev=null;devSecret=sec;devMode=true;ROLE="owner";nav={view:"settings"};setTimeout(()=>devSetup().then(()=>{devPublish();render()}),30)}if(pendReseal&&S.settings.staff&&Object.keys(S.settings.staff).length){const c2=pendReseal;pendReseal=null;setTimeout(()=>resealStaff(c2).then(()=>save()).catch(()=>{}),80)}if(pendCode&&S.settings.devk){const c=pendCode;pendCode=null;setTimeout(()=>devSeal(c).catch(()=>{}),50)}
+    ensureS();lastWritten=splitState();resetUndo();if((pendCode||pendDev)&&amRevoked()){const me=deviceId();delete S.settings.revoked[me];if(S.settings.devices)delete S.settings.devices[me];try{localStorage.removeItem("center-staffDevice")}catch(x){}skipUndo=true;setTimeout(save,30)}if(pendStaff){try{useStaff()}catch(x){}}if(pendDev){const sec=pendDev;pendDev=null;devSecret=sec;devMode=true;ROLE="owner";nav={view:"settings"};setTimeout(()=>devSetup().then(()=>{devPublish();render()}),30)}if(pendReseal&&S.settings.staff&&Object.keys(S.settings.staff).length){const c2=pendReseal;pendReseal=null;setTimeout(()=>resealStaff(c2).then(()=>save()).catch(()=>{}),80)}if(pendCode&&S.settings.devk){const c=pendCode;pendCode=null;setTimeout(()=>devSeal(c).catch(()=>{}),50)}
     try{localStorage.setItem(lsKey(),JSON.stringify(S))}catch(e){}
+    if(S.teachers.length){keepGood(S);recoverOffer=null}else{const g=getGood();recoverOffer=g||null}
     render()};
-  unsubs.push(base.onSnapshot(sn=>{if(sn.metadata.hasPendingWrites)return;core=sn.exists?sn.data():{teachers:[]};offline=false;apply()},e=>{offline=true;if(e&&e.code==="permission-denied")authState="blocked";render()}));
+  unsubs.push(base.onSnapshot(sn=>{if(sn.metadata.hasPendingWrites)return;core=sn.exists?sn.data():{teachers:[]};coreLoaded=true;offline=false;apply()},e=>{offline=true;if(e&&e.code==="permission-denied")authState="blocked";render()}));
   unsubs.push(base.collection("months").onSnapshot(sn=>{if(sn.metadata.hasPendingWrites)return;const m={};const ex={};sn.docs.forEach(d=>{const x=d.data()||{};m[d.id]=(x.payments||{});if(Array.isArray(x.expenses)&&x.expenses.length)ex[d.id]=x.expenses});months=m;exps=ex;apply()},()=>{offline=true;render()}));
 }
 async function doLogin(e){
   e.preventDefault();authErr="";
   const code=document.getElementById("lgPass").value.trim();
   const btn=document.getElementById("lgBtn");btn.disabled=true;btn.textContent="جاري التفعيل…";
-  try{setLoginGen();await fauth.signInWithEmailAndPassword(BRAND.account,code);pendCode=code;pendReseal=code;actSave(code)}
+  try{setLoginGen();await fauth.signInWithEmailAndPassword(BRAND.account,code);try{localStorage.removeItem("center-staffDevice")}catch(x){}pendCode=code;pendReseal=code;actSave(code)}
   catch(err){const c=err&&err.code||"";authErr=/invalid|wrong|not-found|credential/.test(c)?"كود التفعيل غلط. اتأكد منه وجرّب تاني.":/network/.test(c)?"مفيش نت. اتأكد من الاتصال وجرّب تاني.":/too-many/.test(c)?"محاولات كتير. استنى شوية وجرّب تاني.":"ماقدرتش أفعّل البرنامج. جرّب تاني.";authState="login";render()}
 }
 const LOGIN_GEN="2"; // bump to sign every phone out once (they log in again from the entry screen)
@@ -644,14 +652,14 @@ function viewAuth(){
   if(authState==="loading"||authState==="checking")return `<div class="splash"><img src="${LOGO}" alt="${esc(BRAND.name)}" class="splogo"><div class="spbar"><i></i></div></div>`;
   if(authState==="blocked")return head+`<div class="form"><h2>الاشتراك موقوف</h2><div class="sub">الحساب ده مش مفعّل دلوقتي. كلّم الدعم الفني عشان يتفعّل تاني، وبياناتك محفوظة زي ما هي.</div>
     <div class="bar"><span class="pill">الدعم: <span dir="ltr">${esc(DEV.phone)}</span></span></div><button class="btn ghost" onclick="logout()">خروج</button></div>`;
-  const doors=!staffDevice()&&!authChoice;
+  const doors=!authChoice;
   const top=(big)=>`<div class="gtop ${big?"":"sm"}"><div class="glow"></div><img src="${LOGO}" alt="${esc(BRAND.name)}" class="glogo"></div>`;
   if(doors)return `<div class="gate">${top(true)}<div class="gq">مين اللي داخل؟</div>
     <div class="doors"><button class="door own" onclick="authChoice='owner';authErr='';render()"><span class="dic">${ic("key")}</span><span class="dt"><span class="dl">صاحب السنتر</span><b>${esc(BRAND.short)}</b></span><span class="dgo">‹</span></button>
     <button class="door" onclick="authChoice='staff';authErr='';render()"><span class="dic">${ic("teachers")}</span><span class="dt"><span class="dl">فريق السنتر</span><b>السكرتير</b></span><span class="dgo">‹</span></button></div></div>`;
-  if(staffDevice()||authChoice==="staff")return `<div class="gate">${top(false)}<form class="gform" onsubmit="staffLogin(event)"><span class="rolechip">${ic("teachers")} السكرتير</span><h2>اكتب كودك</h2>
+  if(authChoice==="staff")return `<div class="gate">${top(false)}<form class="gform" onsubmit="staffLogin(event)"><span class="rolechip">${ic("teachers")} السكرتير</span><h2>اكتب كودك</h2>
     <input id="sfIn" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off" required class="pinbox">${authErr?`<div class="note">${esc(authErr)}</div>`:""}
-    <button class="btn big" id="sfBtn">دخول</button>${staffDevice()?"":`<button type="button" class="btn ghost" onclick="authChoice='';authErr='';render()">رجوع</button>`}</form></div>`;
+    <button class="btn big" id="sfBtn">دخول</button><button type="button" class="btn ghost" onclick="authChoice='';authErr='';render()">رجوع</button></form></div>`;
   return `<div class="gate">${top(false)}<form class="gform" onsubmit="doLogin(event)"><span class="rolechip">${ic("key")} صاحب السنتر · ${esc(BRAND.short)}</span><h2>كود التفعيل</h2>
     <input id="lgPass" type="password" autocomplete="current-password" required dir="ltr" class="pinbox" style="letter-spacing:.2em">
     ${authErr?`<div class="note">${esc(authErr)}</div>`:""}
@@ -687,18 +695,20 @@ async function devPublish(){try{const k=S.settings.devk,c=S.settings.devc;if(!k|
 var pendDev=null;
 var devNeedAct=false;
 async function devLoginOutside(sec){const ae=document.getElementById("devAct"),act=ae?ae.value.trim():"";
-  if(act){try{pendDev=sec;pendCode=act;devAsk=false;setLoginGen();await fauth.signInWithEmailAndPassword(BRAND.account,act);devNeedAct=false}
+  if(act){try{pendDev=sec;pendCode=act;devAsk=false;setLoginGen();try{localStorage.removeItem("center-staffDevice")}catch(x){}await fauth.signInWithEmailAndPassword(BRAND.account,act);devNeedAct=false}
     catch(e){pendDev=null;pendCode=null;devAsk=true;devErr=e&&e.code&&/invalid|wrong|credential/.test(e.code)?"كود التفعيل غلط.":/network/.test((e&&e.code)||"")?"مفيش نت.":"حصل خطأ: "+((e&&e.code)||"");render()}return}
   let d;try{const sn=await fsdb.collection("devcodes").doc(await devDocId()).get();if(!sn.exists)throw {code:"none"};d=sn.data()}
   catch(e){devNeedAct=true;devErr=/permission/.test((e&&e.code)||"")?"قواعد Firebase الجديدة لسه متحطتش. اكتب كود التفعيل المرة دي.":"أول مرة بس: اكتب كود التفعيل كمان، وبعد كده رمزك لوحده هيكفي.";render();return}
   try{const aes=await devAes(sec,ub64(d.salt)),pri=await crypto.subtle.decrypt({name:"AES-GCM",iv:ub64(d.iv)},aes,ub64(d.pri)),pk=await crypto.subtle.importKey("pkcs8",pri,RSA,false,["decrypt"]);
-    const code=new TextDecoder().decode(await crypto.subtle.decrypt(RSA,pk,ub64(d.ct)));pendDev=sec;devAsk=false;setLoginGen();await fauth.signInWithEmailAndPassword(BRAND.account,code)}
+    const code=new TextDecoder().decode(await crypto.subtle.decrypt(RSA,pk,ub64(d.ct)));pendDev=sec;devAsk=false;setLoginGen();try{localStorage.removeItem("center-staffDevice")}catch(x){}await fauth.signInWithEmailAndPassword(BRAND.account,code)}
   catch(e){pendDev=null;devErr=e&&e.code&&/invalid|wrong|credential/.test(e.code)?"الكود المحفوظ قديم. ادخل بكود التفعيل مرة.":"ماقدرتش أفتح. جرّب تاني.";render()}}
 async function devReadCode(){const k=S.settings.devk,c=S.settings.devc;if(!k||!c||!devSecret)return null;try{const aes=await devAes(devSecret,ub64(k.salt));
   const pri=await crypto.subtle.decrypt({name:"AES-GCM",iv:ub64(k.iv)},aes,ub64(k.pri));const pk=await crypto.subtle.importKey("pkcs8",pri,RSA,false,["decrypt"]);
   return new TextDecoder().decode(await crypto.subtle.decrypt(RSA,pk,ub64(c)))}catch(e){return null}}
 function devLock(){devMode=false;devDone=null;devSecret=null;devCode=null;devShow=false;devErr=""}
 function devWaitLeft(){try{const w=+localStorage.getItem("center-devWait")||0;return Math.max(0,w-Date.now())}catch(e){return 0}}
+/* hidden developer entry: press and hold the version number for 3 seconds (no visual hint) */
+var devHoldT=null;function devHold(on){clearTimeout(devHoldT);devHoldT=null;if(on)devHoldT=setTimeout(()=>{devHoldT=null;devAsk=true;devErr="";devMade="";render()},3000)}
 function devTap(){const n=Date.now();devTaps=n-devTapT<1500?devTaps+1:1;devTapT=n;if(devTaps>=5){devTaps=0;devAsk=true;devErr="";devMade="";render()}}
 async function devHash2(x){const k=await crypto.subtle.importKey("raw",new TextEncoder().encode(x),"PBKDF2",false,["deriveBits"]);const b=await crypto.subtle.deriveBits({name:"PBKDF2",salt:new TextEncoder().encode("jimswani-devkey-v2"),iterations:600000,hash:"SHA-256"},k,256);return "p2:"+[...new Uint8Array(b)].map(v=>v.toString(16).padStart(2,"0")).join("")}
 async function devCheck(x){return DEV_KEY.startsWith("p2:")?(await devHash2(x))===DEV_KEY:(await devHash(x))===DEV_KEY}
@@ -735,7 +745,7 @@ async function devChange(e){e.preventDefault();const cur=devCode||document.getEl
   try{const u=fauth.currentUser;await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(BRAND.account,cur));await u.updatePassword(nw);devDone=nw;if(!staffDevice())actSave(nw);try{await resealStaff(nw);save()}catch(x){}try{await devSeal(nw);devCode=nw;devShow=false}catch(x){}}
   catch(err){const c=(err&&err.code)||"";devErr=/invalid|wrong|credential|mismatch/.test(c)?"الكود الحالي غلط.":/weak/.test(c)?"الكود الجديد ضعيف، خليه أطول.":/network/.test(c)?"مفيش نت. جرّب تاني.":/too-many/.test(c)?"محاولات كتير، استنى شوية.":"حصل خطأ: "+c}
   render()}
-function credit(){return `<footer class="credit"><span class="devline"><i></i>برمجة ${esc(DEV.name)}</span><span class="ver" onclick="devTap()">${APP_VERSION}</span></footer>${devAsk?devAskBox():""}`}
+function credit(){return `<footer class="credit"><span class="devline"><i></i>برمجة ${esc(DEV.name)}</span><span class="ver" onpointerdown="devHold(1)" onpointerup="devHold(0)" onpointerleave="devHold(0)" onpointercancel="devHold(0)" oncontextmenu="return false">${APP_VERSION}</span></footer>${devAsk?devAskBox():""}`}
 function devInit(){return "م ج"}
 function devCard(){return `<section class="devcard"><div class="dvh"><span class="devava">${esc(devInit())}</span><div><span class="sub">صمّم البرنامج وبرمجه</span><h2>${esc(DEV.name)}</h2><span class="sub">${esc(DEV.title)}</span></div></div>
   <div class="sub">عايز برنامج زي ده لسنترك أو لمكان شغلك؟ كلّمني.</div>
@@ -836,10 +846,15 @@ function useStaff(){if(!pendStaff)return;const sid=pendStaff;pendStaff=null;cons
 /* a device the owner removed: wipe it and keep it out */
 function revokedLocal(){try{return localStorage.getItem("center-revoked")==="1"}catch(e){return false}}
 function amRevoked(){return !!(S.settings&&S.settings.revoked&&S.settings.revoked[deviceId()])}
-function wipeDevice(){try{localStorage.setItem("center-revoked","1");localStorage.removeItem(lsKey());localStorage.removeItem("center-staffDevice");localStorage.removeItem("center-ac")}catch(e){}
+function wipeDevice(){wiping=true;clearTimeout(saveTimer);saveTimer=null;dirty=false;setTimeout(()=>{try{location.reload()}catch(e){}},700);try{localStorage.setItem("center-revoked","1");localStorage.removeItem(lsKey());localStorage.removeItem("center-staffDevice");localStorage.removeItem("center-ac")}catch(e){}
   S={teachers:[],attendance:{},payments:{}};ROLE=null;try{unsubs.forEach(f=>f());unsubs=[]}catch(e){}
   try{if(fauth)fauth.signOut()}catch(e){}try{if(fsdb&&fsdb.terminate)fsdb.terminate().then(()=>fsdb.clearPersistence&&fsdb.clearPersistence()).catch(()=>{})}catch(e){}}
-function viewRevoked(){return `<div class="lockscr"><img src="${LOGO}" alt="${esc(BRAND.name)}" class="lklogo"><section class="form"><h2>الموبايل ده اتشال من البرنامج</h2><div class="sub">صاحب السنتر شال الموبايل ده من البرنامج، والداتا اتمسحت منه. لو ده غلط، كلّم صاحب السنتر.</div><button class="btn ghost" onclick="try{localStorage.removeItem('center-revoked')}catch(e){};authChoice='staff';authErr='';render()">معايا كود جديد</button></section></div>`}
+var kicking=false;
+/* a removed phone cleans its own entry, so it is not blacklisted: it can come back later in any mode */
+async function kickSelf(){if(kicking)return;kicking=true;const me=deviceId();
+  try{if(S.settings.revoked)delete S.settings.revoked[me];if(S.settings.devices)delete S.settings.devices[me];skipUndo=true;save();clearTimeout(saveTimer);await flush()}catch(e){}
+  wipeDevice()}
+function viewRevoked(){return `<div class="lockscr"><img src="${LOGO}" alt="${esc(BRAND.name)}" class="lklogo"><section class="form"><h2>الموبايل ده اتشال من البرنامج</h2><div class="sub">صاحب السنتر شال الموبايل ده، والداتا اتمسحت منه.</div><button class="btn ghost" onclick="try{localStorage.removeItem('center-revoked')}catch(e){};authChoice='';authErr='';render()">رجوع لصفحة الدخول</button></section></div>`}
 function ownerPin(){const p=S.settings&&S.settings.pins;return !!(p&&p.owner)}
 function lockHere(){const p=S.settings&&S.settings.pins;if(!p||!p.owner)return false;if(!p.on)return true;return !!p.on[deviceId()]}
 function pinsOn(){return lockHere()||staffDevice()}
@@ -1019,7 +1034,7 @@ function navBar(){const cur=navSection(nav.view),n=S.teachers.length?unpaidList(
 function render(){
   const el=document.getElementById("app");try{document.body.classList.toggle("staffmode",!isOwner())}catch(e){}
   let v=nav.view;
-  if(CLOUD&&cuser&&authState==="ready"&&amRevoked()){wipeDevice();el.innerHTML=viewRevoked();return}
+  if(CLOUD&&cuser&&authState==="ready"&&amRevoked()){kickSelf();el.innerHTML=viewRevoked();return}
   if(revokedLocal()){el.innerHTML=viewRevoked()+credit();return}
   if(CLOUD&&authState!=="ready"){el.innerHTML=viewAuth()+credit();return}
   if(needPin()){el.innerHTML=viewLock()+credit();setTimeout(()=>{const i=document.getElementById("pinIn");if(i&&!i.disabled)i.focus()},50);return}
@@ -1041,6 +1056,10 @@ function celebrate(msg){if(REDUCED){flash(msg);return}const box=document.createE
   document.body.appendChild(box);setTimeout(()=>box.remove(),2000);try{navigator.vibrate&&navigator.vibrate([20,40,20])}catch(e){}flash(msg)}
 function afterPay(g,x,m,was){if(was||!isPaid(g,x,m))return;buzz();popSid=x.id;const ml=monthSt(g,m);if(ml.length>1&&ml.every(y=>isPaid(g,y,m)))celebrate("🎉 مجموعة «"+g.name+"» كلها دفعت الشهر ده ✓")}
 
+function recoverBox(){const g=recoverOffer;if(!g||!isOwner())return "";const d=g.d,ns=d.teachers.reduce((a,t)=>a+(t.groups||[]).reduce((b,x)=>b+(x.students||[]).length,0),0);let when="";try{when=new Date(g.at).toLocaleString("ar-EG",{day:"numeric",month:"long",hour:"numeric",minute:"2-digit"})}catch(e){}
+  return `<section class="form recover"><h2>${ic("backup")} رجّع البيانات من الموبايل ده</h2><div class="sub">البيانات اللي على السيرفر فاضية، بس الموبايل ده عليه نسخة فيها ${arn(d.teachers.length)} مدرس و${arn(ns)} طالب${when?" (آخر تحديث "+esc(when)+")":""}.</div><button class="btn big" onclick="doRecover(this)">رجّعها دلوقتي</button></section>`}
+function doRecover(btn){const g=recoverOffer;if(!g)return;twice("rec",()=>{const d=g.d;S.teachers=d.teachers;S.locks=Object.assign({},d.locks||{},S.locks||{});S.payouts=Object.assign({},d.payouts||{},S.payouts||{});
+  S.settings=Object.assign({},d.settings||{},S.settings||{});S.payments=Object.assign({},d.payments||{},S.payments||{});S.expenses=Object.assign({},d.expenses||{},S.expenses||{});ensureS();recoverOffer=null;save();flash("البيانات رجعت ✓");render()},btn)}
 function closeDue(){if(payMonth!==curMonth()||new Date().getDate()>10)return "";const pm=addMonth(curMonth(),-1);
   const T=S.teachers.filter(t=>tActive(t,pm)&&teacherMonth(t,pm).stu>0&&!isLocked(t.id,pm));if(!T.length)return "";
   return `<section class="duecard"><div class="dch"><span class="qi">${ic("receipt")}</span><div><b>تقفيلة ${monthName(pm)}</b><span class="sub">لسه ${arn(T.length)} ${T.length>2&&T.length<11?"مدرسين":"مدرس"} مقفلوش الشهر اللي فات</span></div></div>
@@ -1054,7 +1073,7 @@ function viewHome(){
   <header class="hero">${pinsOn()&&!staffDevice()?`<button class="iconbtn" onclick="lockNow()" aria-label="قفل البرنامج">${ic("lock")}</button>`:'<span class="iconsp"></span>'}<img src="${LOGO}" alt="${esc(BRAND.name)} — ${esc(BRAND.latin)}" class="hlogo" onclick="logoTap()"><span class="iconsp"></span></header>
   ${own?storiesBox():""}
   <div class="monthnav card" id="monthNav"><button onclick="shiftMonth(-1)" aria-label="الشهر اللي فات">›</button><div class="mn"><b>${monthName(m)}</b><span class="sub">${m===curMonth()?"النهاردة "+DAYS[wd]+" "+now.toLocaleDateString("ar-EG",{day:"numeric",month:"long"}):`<button class="linkbtn" onclick="payMonth=curMonth();render()">ارجع للشهر ده</button>`}</span></div><button onclick="shiftMonth(1)" aria-label="الشهر الجاي">‹</button></div>
-  ${own?startBox()+closeDue():""}
+  ${recoverBox()}${own?(recoverOffer?"":startBox())+closeDue():""}
   ${!S.teachers.length?(own?"":`<div class="empty">لسه مفيش مدرسين.</div>`)
   :`<section class="herokpi ownonly"><div class="hk-ring">${ring(pct,108,10,"var(--ok)")}<span class="hk-pct"><b class="num">${arn(Math.round(pct*100))}٪</b><span>دفعوا</span></span></div>
     <div class="hk-main">${own?`<span class="sub">اتحصّل ${m===curMonth()?"الشهر ده":"في "+monthName(m)}</span><b class="num big"><span data-count="${c}">${arn(c)}</span> <small>ج</small></b>`:`<span class="sub">الطلبة اللي دفعوا</span><b class="num big"><span data-count="${pd}">${arn(pd)}</span> <small>من ${arn(stu)}</small></b>`}
@@ -1593,7 +1612,7 @@ async function restoreBackup(inp){
     else{offerRestore(JSON.parse(await f.text()))}
   }catch(e){backupMsg=/image\//.test(f.type)?"الصورة دي مش نسخة سليمة. لازم تكون صورة النسخة الأصلية من غير قص أو ضغط (لو جت من الواتساب لازم تكون اتبعتت كمستند).":"الملف ده مش نسخة احتياطية من البرنامج.";render()}
 }
-function confirmRestore(){if(!restorePending)return;const dk=S.settings.devk,dc=S.settings.devc;S=restorePending;S.settings=S.settings||{};if(dk){S.settings.devk=dk;if(dc)S.settings.devc=dc;else delete S.settings.devc}else{delete S.settings.devk;delete S.settings.devc}restorePending=null;ensureS();save();backupMsg="اترجعت البيانات من النسخة.";render()}
+function confirmRestore(){if(!restorePending)return;allowEmpty=true;const dk=S.settings.devk,dc=S.settings.devc;S=restorePending;S.settings=S.settings||{};if(dk){S.settings.devk=dk;if(dc)S.settings.devc=dc;else delete S.settings.devc}else{delete S.settings.devk;delete S.settings.devc}restorePending=null;ensureS();save();backupMsg="اترجعت البيانات من النسخة.";render()}
 
 
 /* ---------- student search & profile ---------- */
@@ -1962,7 +1981,7 @@ function viewSettings(){
   <button class="row" onclick="go({view:'templates'})"><span class="m"><h3>رسايل الواتساب</h3><span class="sub">صيغة التذكير والإيصال والتقفيلة وقايمة اللي مادفعوش</span></span><span class="chev">‹</span></button>
   ${backupBox()}
   <div class="sect">عن البرنامج</div>
-  <section class="form about"><div class="kv"><span>السنتر</span><b>${esc(BRAND.name)}</b></div><div class="kv" onclick="devTap()"><span>الإصدار</span><b dir="ltr">${APP_VERSION}</b></div><div class="kv"><span>البرمجة</span><span>${esc(DEV.name)}</span></div><div class="kv"><span>الدعم الفني</span><a class="phone" href="tel:${esc(DEV.phone)}" dir="ltr">${esc(DEV.phone)}</a></div></section>
+  <section class="form about"><div class="kv"><span>السنتر</span><b>${esc(BRAND.name)}</b></div><div class="kv nosel" onpointerdown="devHold(1)" onpointerup="devHold(0)" onpointerleave="devHold(0)" onpointercancel="devHold(0)" oncontextmenu="return false"><span>الإصدار</span><b dir="ltr">${APP_VERSION}</b></div><div class="kv"><span>البرمجة</span><span>${esc(DEV.name)}</span></div><div class="kv"><span>الدعم الفني</span><a class="phone" href="tel:${esc(DEV.phone)}" dir="ltr">${esc(DEV.phone)}</a></div></section>
   <button class="logoutbtn" onclick="signOutNow(this)">${ic("lock")}<span>تسجيل الخروج</span></button>`}
 function viewTemplates(){
   const box=(k,title)=>`<section class="form"><h2>${title}</h2>
@@ -2021,7 +2040,7 @@ function setGroupJoined(){const f=findGroup(nav.gid);if(!f)return;const nj=(docu
   st.forEach(x=>x.joined=nj);teacherImg=null;teacherPdf=null;save();flash("طلبة المجموعة بقوا من شهر "+monthName(nj)+" ✓");go({view:"group",gid:f.g.id})}
 function setStuJoined(ev,gid,sid){ev.preventDefault();const f=findGroup(gid);const x=f&&(f.g.students||[]).find(y=>y.id===sid);if(!x)return;const nj=document.getElementById("jn-"+sid).value;if(!/^\d{4}-\d{2}$/.test(nj||""))return;
   const er=joinedErr(f.t,f.g,x,nj);if(er){flash(er);render();return}x.joined=nj;teacherImg=null;teacherPdf=null;save();flash("اتسجّل من شهر "+monthName(nj)+" ✓");render()}
-function delTeacherHard(id){const t=findTeacher(id),v=(document.getElementById("delName")||{}).value||"";if(!t)return;if(v.trim()!==t.name.trim()){flash("الاسم مش مطابق، ماتمسحش حاجة");render();return}delAsk=null;S.teachers=S.teachers.filter(x=>x.id!==id);save();flash("اتمسح المدرس");go({view:"home"})}
+function delTeacherHard(id){const t=findTeacher(id),v=(document.getElementById("delName")||{}).value||"";if(!t)return;if(v.trim()!==t.name.trim()){flash("الاسم مش مطابق، ماتمسحش حاجة");render();return}delAsk=null;S.teachers=S.teachers.filter(x=>x.id!==id);allowEmpty=true;save();flash("اتمسح المدرس");go({view:"home"})}
 function delGroupHard(){const f=findGroup(nav.gid);if(!f)return;const v=(document.getElementById("delName")||{}).value||"";if(v.trim()!==String(f.g.name).trim()){flash("الاسم مش مطابق، ماتمسحتش");render();return}delAsk=null;f.t.groups=f.t.groups.filter(x=>x.id!==f.g.id);save();flash("اتمسحت المجموعة");go({view:"teacher",tid:f.t.id})}
 function teacherLeft(id){const t=findTeacher(id);if(!t)return;const L=(document.getElementById("tlM")||{}).value;if(!/^\d{4}-\d{2}$/.test(L||"")){flash("اختار الشهر");render();return}
   const lk=Object.keys(S.locks||{}).filter(k=>k.startsWith(t.id+"|")).map(k=>k.split("|")[1]).filter(m=>m>=L).sort();
@@ -2033,7 +2052,7 @@ function teacherLeft(id){const t=findTeacher(id);if(!t)return;const L=(document.
 function teacherBack(id){const t=findTeacher(id);if(!t||!t.left)return;const L=t.left;
   (t.groups||[]).forEach(g=>(g.students||[]).forEach(x=>{if(x.tLeftPrev!==undefined){if(x.left===L){if(x.tLeftPrev)x.left=x.tLeftPrev;else delete x.left}delete x.tLeftPrev}}));
   delete t.left;save();flash("المدرس رجع للسنتر ✓");render()}
-function delTeacher(id){twice("t"+id,()=>{S.teachers=S.teachers.filter(t=>t.id!==id);save();go({view:"home"})},event.target)}
+function delTeacher(id){twice("t"+id,()=>{S.teachers=S.teachers.filter(t=>t.id!==id);allowEmpty=true;save();go({view:"home"})},event.target)}
 function delGroup(){const{t,g}=findGroup(nav.gid);twice("g"+g.id,()=>{t.groups=t.groups.filter(x=>x.id!==g.id);save();go({view:"teacher",tid:t.id})},event.target)}
 function addStu(e){e.preventDefault();const{t,g}=findGroup(nav.gid);g.students=g.students||[];
   const j=isLocked(t.id,payMonth)?curMonth():payMonth;if(j!==payMonth)flash("الشهر ده مقفول، فالطالب اتسجّل من "+monthName(j));
