@@ -562,7 +562,7 @@ function accountsBox(t){
    Leave it as null and the app works on the device only (local mode). */
 const FIREBASE_CONFIG={apiKey:"AIzaSyB3TNutgwCeZZ0mHygE0NI8yCh9m7x6-oI",authDomain:"jimswani-centers.firebaseapp.com",projectId:"jimswani-centers",storageBucket:"jimswani-centers.firebasestorage.app",messagingSenderId:"809726548597",appId:"1:809726548597:web:986921d2087b145af3f63c"};
 const CLOUD=!!(FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey);
-const APP_VERSION="2.9";
+const APP_VERSION="3.1";
 const DEV={name:"م/ محمد جمال",phone:"01069982196",title:"مهندس برمجيات · برامج حسابات السناتر",handle:"jimswani",fb:"https://www.facebook.com/profile.php?id=61588021126316",tiktok:"https://www.tiktok.com/@jimswani"};
 function devWa(){return "https://wa.me/2"+DEV.phone+"?text="+encodeURIComponent("السلام عليكم يا بشمهندس، شفت برنامج "+BRAND.name+" وعايز برنامج زيه لسنتري")}
 let db=null, ref=null, saveTimer=null, saving=false, pending=false, offline=false, dirty=false;
@@ -621,11 +621,11 @@ async function startCloud(){
     authState="ready";render();subscribe();
   });
 }
-var coreLoaded=false,wiping=false,allowEmpty=false,recoverOffer=null;
+var monthsLoaded=false,coreLoaded=false,wiping=false,allowEmpty=false,recoverOffer=null;
 function goodKey(){return "center-good"+(cuser?"-"+cuser.uid:"")}
 function keepGood(x){try{if(x&&Array.isArray(x.teachers)&&x.teachers.length)localStorage.setItem(goodKey(),JSON.stringify({at:Date.now(),d:x}))}catch(e){}}
 function getGood(){try{const g=JSON.parse(localStorage.getItem(goodKey())||"null");return g&&g.d&&g.d.teachers&&g.d.teachers.length?g:null}catch(e){return null}}
-function subscribe(){coreLoaded=false;
+function subscribe(){coreLoaded=false;monthsLoaded=false;bkTried=false;
   const base=fsdb.collection("centers").doc(cuser.uid);
   let core=null,months={},exps={};
   const apply=()=>{if(dirty||saving)return;if(core===null){return}
@@ -633,10 +633,10 @@ function subscribe(){coreLoaded=false;
     S={teachers:(core&&core.teachers)||S.teachers||[],locks:(core&&core.locks)||S.locks||{},payouts:(core&&core.payouts)||S.payouts||{},settings:(core&&core.settings)||S.settings||{},attendance:{},payments:core||Object.keys(months).length?pay:(S.payments||{}),expenses:core||Object.keys(months).length?exps:(S.expenses||{})};
     ensureS();lastWritten=splitState();resetUndo();if((pendCode||pendDev)&&amRevoked()){const me=deviceId();delete S.settings.revoked[me];if(S.settings.devices)delete S.settings.devices[me];try{localStorage.removeItem("center-staffDevice")}catch(x){}skipUndo=true;setTimeout(save,30)}if(pendStaff){try{useStaff()}catch(x){}}if(pendDev){const sec=pendDev;pendDev=null;devSecret=sec;devMode=true;ROLE="owner";nav={view:"settings"};setTimeout(()=>devSetup().then(()=>{devPublish();render()}),30)}if(pendReseal&&S.settings.staff&&Object.keys(S.settings.staff).length){const c2=pendReseal;pendReseal=null;setTimeout(()=>resealStaff(c2).then(()=>save()).catch(()=>{}),80)}if(pendCode&&S.settings.devk){const c=pendCode;pendCode=null;setTimeout(()=>devSeal(c).catch(()=>{}),50)}
     try{localStorage.setItem(lsKey(),JSON.stringify(S))}catch(e){}
-    if(S.teachers.length){keepGood(S);recoverOffer=null;setTimeout(autoBackup,4000)}else{const g=getGood();recoverOffer=g||null}
+    if(S.teachers.length){keepGood(S);recoverOffer=null;setTimeout(autoBackup,1500)}else{const g=getGood();recoverOffer=g||null}
     render()};
   unsubs.push(base.onSnapshot(sn=>{if(sn.metadata.hasPendingWrites)return;core=sn.exists?sn.data():{teachers:[]};coreLoaded=true;offline=false;apply()},e=>{offline=true;if(e&&e.code==="permission-denied")authState="blocked";render()}));
-  unsubs.push(base.collection("months").onSnapshot(sn=>{if(sn.metadata.hasPendingWrites)return;const m={};const ex={};sn.docs.forEach(d=>{const x=d.data()||{};m[d.id]=(x.payments||{});if(Array.isArray(x.expenses)&&x.expenses.length)ex[d.id]=x.expenses});months=m;exps=ex;apply()},()=>{offline=true;render()}));
+  unsubs.push(base.collection("months").onSnapshot(sn=>{if(sn.metadata.hasPendingWrites)return;monthsLoaded=true;const m={};const ex={};sn.docs.forEach(d=>{const x=d.data()||{};m[d.id]=(x.payments||{});if(Array.isArray(x.expenses)&&x.expenses.length)ex[d.id]=x.expenses});months=m;exps=ex;apply()},()=>{offline=true;render()}));
 }
 async function doLogin(e){
   e.preventDefault();authErr="";
@@ -1246,8 +1246,8 @@ function backupBox(){
   const lb=lastBackup(),open=!!(backupImg||backupMsg||restorePending);
   return `<details class="form backup"${open?" open":""}><summary><b>النسخة الاحتياطية</b><span class="sub">${lb?"آخر نسخة: "+esc(lb):"لسه ما اتعملتش"}</span></summary>
     ${CLOUD?"":`<div class="sub">البيانات على الجهاز ده بس، اعمل نسخة كل أسبوع.</div>`}
-    ${CLOUD?`<div class="autobk"><div class="bar" style="justify-content:space-between"><div><b>النسخ التلقائية</b><div class="sub">البرنامج بياخد نسخة لوحده كل يوم، وبيحتفظ بآخر ١٤ يوم.</div></div>${autoList&&autoList!=="loading"&&autoList!=="error"?"":`<button class="btn ghost sm" onclick="loadAutoList()">${autoList==="loading"?"جاري…":"عرض"}</button>`}</div>
-      ${autoList==="error"?`<div class="note">ماقدرتش أجيب النسخ. اتأكد من النت ومن قواعد Firebase.</div>`:Array.isArray(autoList)?(autoList.length?`<div class="rtable">${autoList.map(x=>`<div class="rrow"><span class="m"><b>${esc(x.id)}</b><span class="sub">${arn(x.n)} مدرس</span></span><button class="btn ghost sm" onclick="useAuto('${x.id}')">رجّعها</button></div>`).join("")}</div>`:`<div class="sub">لسه مفيش نسخ. أول نسخة بتتعمل النهاردة.</div>`):""}</div>`:""}
+    ${bkSkipped?`<div class="note">البيانات النهارده شكلها ناقص عن آخر نسخة، فالبرنامج ماحفظهاش كنسخة يومية. لو في مشكلة، رجّع آخر نسخة من تحت.</div>`:""}${CLOUD?`<div class="autobk"><div class="bar" style="justify-content:space-between"><div><b>النسخ التلقائية</b><div class="sub">كل يوم البرنامج بيحفظ لوحده البيانات زي ما كانت لحد آخر اليوم اللي قبله. النسخ دي مابتتعدّلش، وبيفضل آخر ٣٠ يوم والأقدم بيتمسح لوحده.</div></div>${autoList&&autoList!=="loading"&&autoList!=="error"?"":`<button class="btn ghost sm" onclick="loadAutoList()">${autoList==="loading"?"جاري…":"عرض"}</button>`}</div>
+      ${autoList==="error"?`<div class="note">ماقدرتش أجيب النسخ. اتأكد من النت ومن قواعد Firebase.</div>`:Array.isArray(autoList)?(autoList.length?`<div class="rtable">${autoList.map(x=>`<div class="rrow"><span class="m"><b>لحد آخر يوم ${esc(bkLabel(x.id))}</b><span class="sub">${arn(x.n)} مدرس · ${arn(x.st)} طالب</span></span><button class="btn ghost sm" onclick="useAuto('${x.id}')">رجّعها</button></div>`).join("")}</div>`:`<div class="sub">لسه مفيش نسخ. أول نسخة بتتعمل بكرة أول ما البرنامج يتفتح.</div>`):""}</div>`:""}
     <div class="bar"><button class="btn" onclick="prepareBackup()">عمل صورة النسخة</button>
     <label class="btn ghost" for="restoreFile">استرجاع</label>
     <input type="file" id="restoreFile" accept="image/png,image/*,.json,application/json" hidden onchange="restoreBackup(this)">
@@ -1266,12 +1266,25 @@ function backupBox(){
 async function gz(str){try{if(!window.CompressionStream)return null;const cs=new Blob([str]).stream().pipeThrough(new CompressionStream("gzip"));return b64(await new Response(cs).arrayBuffer())}catch(e){return null}}
 async function gunz(b){const ds=new Blob([ub64(b)]).stream().pipeThrough(new DecompressionStream("gzip"));return await new Response(ds).text()}
 function bkCol(){return fsdb.collection("centers").doc(cuser.uid).collection("backups")}
-async function autoBackup(){try{if(!(CLOUD&&cuser&&coreLoaded&&fsdb)||wiping||!(S.teachers||[]).length||!isOwner())return;const day=todayISO(),k="center-autoBk-"+cuser.uid;
-  if(localStorage.getItem(k)===day)return;const j=backupJSON(),z=await gz(j),doc={at:new Date().toISOString(),teachers:S.teachers.length};if(z)doc.z=z;else doc.j=j;
-  if((doc.z||doc.j).length>900000)return;await bkCol().doc(day).set(doc);localStorage.setItem(k,day);
-  const all=await bkCol().get(),ids=all.docs.map(d=>d.id).sort();for(const id of ids.slice(0,Math.max(0,ids.length-14))){try{await bkCol().doc(id).delete()}catch(e){}}}catch(e){}}
+/* daily automatic backup: taken at the first opening of each day = the data as it was at the end of the previous day.
+   Write-once (Firestore rules forbid update/delete), and it refuses to save data that looks broken. */
+function bkStats(x){let st=0,pays=0;(x.teachers||[]).forEach(t=>(t.groups||[]).forEach(g=>{st+=(g.students||[]).length}));for(const k in (x.payments||{}))pays+=Object.keys(x.payments[k]||{}).length;return{teachers:(x.teachers||[]).length,students:st,pays}}
+function bkLooksBroken(now,prev){if(!now.teachers||!now.students)return true;if(!prev)return false;
+  if(prev.students>=10&&now.students<prev.students*0.5)return true;if(prev.teachers>=3&&now.teachers<prev.teachers*0.5)return true;if(prev.pays>=20&&now.pays<prev.pays*0.4)return true;return false}
+var bkTried=false;
+async function autoBackup(){try{if(bkTried||!(CLOUD&&cuser&&coreLoaded&&monthsLoaded&&fsdb)||wiping)return;bkTried=true;
+  const day=todayISO(),k="center-autoBk-"+cuser.uid;if(localStorage.getItem(k)===day)return;
+  const now=bkStats(S);let prev=null;try{const ls=await bkCol().orderBy("day","desc").limit(1).get();if(ls.docs.length){const d=ls.docs[0];if(d.id===day){localStorage.setItem(k,day);return}prev=d.data()}}catch(e){}
+  if(bkLooksBroken(now,prev)){bkSkipped=true;render();return}
+  const FV=firebase.firestore&&firebase.firestore.FieldValue,j=backupJSON(),z=await gz(j),doc={day,at:new Date().toISOString(),ts:FV?FV.serverTimestamp():new Date(),teachers:now.teachers,students:now.students,pays:now.pays};if(z)doc.z=z;else doc.j=j;
+  if((doc.z||doc.j).length>900000)return;await bkCol().doc(day).set(doc);localStorage.setItem(k,day);bkCleanup(day)}catch(e){}}
+/* keep the last 30 days; Firebase rules only allow deleting copies older than 30 days */
+async function bkCleanup(today){try{const lim=new Date(today+"T00:00:00");lim.setDate(lim.getDate()-30);const cut=lim.toISOString().slice(0,10);
+  const ls=await bkCol().orderBy("day","asc").limit(20).get();for(const d of ls.docs){if(d.id<cut){try{await bkCol().doc(d.id).delete()}catch(e){}}else break}}catch(e){}}
+var bkSkipped=false;
 var autoList=null;
-async function loadAutoList(){autoList="loading";render();try{const all=await bkCol().get();autoList=all.docs.map(d=>({id:d.id,at:(d.data()||{}).at,n:(d.data()||{}).teachers||0})).sort((a,b)=>a.id<b.id?1:-1)}catch(e){autoList="error"}render()}
+async function loadAutoList(){autoList="loading";render();try{const all=await bkCol().orderBy("day","desc").limit(60).get();autoList=all.docs.map(d=>{const x=d.data()||{};return{id:d.id,at:x.at,n:x.teachers||0,st:x.students||0}})}catch(e){autoList="error"}render()}
+function bkLabel(id){try{const d=new Date(id+"T12:00:00");d.setDate(d.getDate()-1);return d.toLocaleDateString("ar-EG",{weekday:"long",day:"numeric",month:"long"})}catch(e){return id}}
 async function useAuto(id){try{const sn=await bkCol().doc(id).get();const d=sn.data()||{};const j=d.z?await gunz(d.z):d.j;offerRestore(JSON.parse(j))}catch(e){backupMsg="ماقدرتش أفتح النسخة دي.";render()}}
 function backupJSON(){return JSON.stringify({app:"center",savedAt:new Date().toISOString(),data:S})}
 function markBackup(){const d=new Date().toLocaleString("ar-EG",{day:"numeric",month:"long",hour:"numeric",minute:"2-digit"});try{localStorage.setItem("center-lastBackup",d);localStorage.setItem("center-lastBackupAt",String(Date.now()))}catch(e){}}
