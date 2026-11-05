@@ -380,6 +380,7 @@ body{background:radial-gradient(900px 380px at 50% -200px,rgba(216,56,63,.10),tr
 @media (prefers-reduced-motion:reduce){.glow,.door.own::after{animation:none}.glogo,.gname,.gq,.door,.gform{animation:none}}
 .logoutbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px;padding:14px;border-radius:16px;border:1px solid color-mix(in srgb,var(--bad) 35%,var(--line));background:transparent;color:var(--bad);font-weight:700;font-size:.95rem}.logoutbtn svg{width:18px;height:18px}.logoutbtn.confirming{background:var(--bad);color:#fff}
 .ver,.nosel{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+.autobk{border:1px solid var(--line);border-radius:14px;padding:12px;margin:8px 0;display:flex;flex-direction:column;gap:8px}
 .devline{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:.74rem;opacity:.8}
 .devline i{width:4px;height:4px;border-radius:50%;background:var(--accent);display:inline-block}
 .credit{font-size:.74rem;gap:2px}
@@ -560,7 +561,7 @@ function accountsBox(t){
    Leave it as null and the app works on the device only (local mode). */
 const FIREBASE_CONFIG={apiKey:"AIzaSyB3TNutgwCeZZ0mHygE0NI8yCh9m7x6-oI",authDomain:"jimswani-centers.firebaseapp.com",projectId:"jimswani-centers",storageBucket:"jimswani-centers.firebasestorage.app",messagingSenderId:"809726548597",appId:"1:809726548597:web:986921d2087b145af3f63c"};
 const CLOUD=!!(FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey);
-const APP_VERSION="2.5";
+const APP_VERSION="2.7";
 const DEV={name:"م/ محمد جمال",phone:"01069982196",title:"مهندس برمجيات · برامج حسابات السناتر",handle:"jimswani",fb:"https://www.facebook.com/profile.php?id=61588021126316",tiktok:"https://www.tiktok.com/@jimswani"};
 function devWa(){return "https://wa.me/2"+DEV.phone+"?text="+encodeURIComponent("السلام عليكم يا بشمهندس، شفت برنامج "+BRAND.name+" وعايز برنامج زيه لسنتري")}
 let db=null, ref=null, saveTimer=null, saving=false, pending=false, offline=false, dirty=false;
@@ -585,13 +586,14 @@ function docRef(key){const base=fsdb.collection("centers").doc(cuser.uid);return
 async function flush(){saveTimer=null;
   if(!(CLOUD&&cuser)||wiping||!coreLoaded)return;
   try{const was=lastWritten.core?JSON.parse(lastWritten.core):null;if(was&&(was.teachers||[]).length&&!(S.teachers||[]).length&&!allowEmpty){dirty=false;return}}catch(e){}
-  allowEmpty=false;
+  const ae=allowEmpty;allowEmpty=false;
   if(saving){pending=true;return}
   saving=true;
   try{
     const docs=splitState(),batch=fsdb.batch();let n=0;
     for(const k in docs){if(lastWritten[k]!==docs[k]){batch.set(docRef(k),JSON.parse(docs[k]));n++}}
-    for(const k in lastWritten){if(!(k in docs)&&k!=="core"){batch.delete(docRef(k));n++}}
+    const gone=Object.keys(lastWritten).filter(k=>!(k in docs)&&k!=="core"),hadM=Object.keys(lastWritten).filter(k=>k!=="core").length,keepM=Object.keys(docs).filter(k=>k!=="core").length;
+    if(!(hadM>=2&&keepM===0&&!ae)){for(const k of gone){batch.delete(docRef(k));n++}} // never wipe every month at once by accident
     if(n){await batch.commit()}
     lastWritten=docs;offline=false;
     if(!pending&&!saveTimerActive())dirty=false;
@@ -630,7 +632,7 @@ function subscribe(){coreLoaded=false;
     S={teachers:(core&&core.teachers)||S.teachers||[],locks:(core&&core.locks)||S.locks||{},payouts:(core&&core.payouts)||S.payouts||{},settings:(core&&core.settings)||S.settings||{},attendance:{},payments:core||Object.keys(months).length?pay:(S.payments||{}),expenses:core||Object.keys(months).length?exps:(S.expenses||{})};
     ensureS();lastWritten=splitState();resetUndo();if((pendCode||pendDev)&&amRevoked()){const me=deviceId();delete S.settings.revoked[me];if(S.settings.devices)delete S.settings.devices[me];try{localStorage.removeItem("center-staffDevice")}catch(x){}skipUndo=true;setTimeout(save,30)}if(pendStaff){try{useStaff()}catch(x){}}if(pendDev){const sec=pendDev;pendDev=null;devSecret=sec;devMode=true;ROLE="owner";nav={view:"settings"};setTimeout(()=>devSetup().then(()=>{devPublish();render()}),30)}if(pendReseal&&S.settings.staff&&Object.keys(S.settings.staff).length){const c2=pendReseal;pendReseal=null;setTimeout(()=>resealStaff(c2).then(()=>save()).catch(()=>{}),80)}if(pendCode&&S.settings.devk){const c=pendCode;pendCode=null;setTimeout(()=>devSeal(c).catch(()=>{}),50)}
     try{localStorage.setItem(lsKey(),JSON.stringify(S))}catch(e){}
-    if(S.teachers.length){keepGood(S);recoverOffer=null}else{const g=getGood();recoverOffer=g||null}
+    if(S.teachers.length){keepGood(S);recoverOffer=null;setTimeout(autoBackup,4000)}else{const g=getGood();recoverOffer=g||null}
     render()};
   unsubs.push(base.onSnapshot(sn=>{if(sn.metadata.hasPendingWrites)return;core=sn.exists?sn.data():{teachers:[]};coreLoaded=true;offline=false;apply()},e=>{offline=true;if(e&&e.code==="permission-denied")authState="blocked";render()}));
   unsubs.push(base.collection("months").onSnapshot(sn=>{if(sn.metadata.hasPendingWrites)return;const m={};const ex={};sn.docs.forEach(d=>{const x=d.data()||{};m[d.id]=(x.payments||{});if(Array.isArray(x.expenses)&&x.expenses.length)ex[d.id]=x.expenses});months=m;exps=ex;apply()},()=>{offline=true;render()}));
@@ -666,7 +668,7 @@ function viewAuth(){
     <button class="btn big" id="lgBtn">دخول</button><button type="button" class="btn ghost" onclick="authChoice='';authErr='';render()">رجوع</button>
     <div class="sub center">مش معاك الكود؟ الدعم الفني <span dir="ltr">${esc(DEV.phone)}</span></div></form></div>`;
 }
-["delTeacher","delTeacherHard","delGroup","delGroupHard","teacherLeft","teacherBack","saveSubject","delSubject","lockMonth","unlockMonth","payTeacher","saveTeacher","saveGroup","mergeTeachers","setGroupJoined","setStuJoined","saveFee","clearFee","transferSel","delStu","saveTpl","resetTpl","confirmRestore","addTeacher","addGroup","saveShare","addExpense","delExpense","copyExpenses","toggleExp","prepareTeacher","prepareTeacherPDF","prepareCenterReport","prepareCenterPDF","prepareBackup","openUnpaidImg","kickDevice","fireStaff","saveStaff","removeStaff","allowDevice","saveStaffPin","removeStaffPin","toggleStaffDevice","saveStaffDevice","savePins","removePins"].forEach(n=>{const f=window[n];if(typeof f==="function")window[n]=function(...a){if(!isOwner()){flash("الحاجة دي لصاحب السنتر بس");render();return}return f.apply(this,a)}});
+["delTeacher","delTeacherHard","delGroup","delGroupHard","teacherLeft","teacherBack","saveSubject","delSubject","lockMonth","unlockMonth","payTeacher","saveTeacher","mergeTeachers","setGroupJoined","setStuJoined","saveFee","clearFee","transferSel","delStu","saveTpl","resetTpl","confirmRestore","addTeacher","saveShare","addExpense","delExpense","copyExpenses","toggleExp","prepareTeacher","prepareTeacherPDF","prepareCenterReport","prepareCenterPDF","prepareBackup","openUnpaidImg","kickDevice","fireStaff","saveStaff","removeStaff","allowDevice","saveStaffPin","removeStaffPin","toggleStaffDevice","saveStaffDevice","savePins","removePins"].forEach(n=>{const f=window[n];if(typeof f==="function")window[n]=function(...a){if(!isOwner()){flash("الحاجة دي لصاحب السنتر بس");render();return}return f.apply(this,a)}});
 Promise.resolve().then(async()=>{ // runs after the whole script has loaded
   if(CLOUD){render();startCloud()}else{loadLocal();render()}
   if("serviceWorker" in navigator&&/^https?:/.test(location.protocol)){try{navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>r.update()).catch(()=>{})}catch(e){}}
@@ -745,7 +747,7 @@ async function devChange(e){e.preventDefault();const cur=devCode||document.getEl
   try{const u=fauth.currentUser;await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(BRAND.account,cur));await u.updatePassword(nw);devDone=nw;if(!staffDevice())actSave(nw);try{await resealStaff(nw);save()}catch(x){}try{await devSeal(nw);devCode=nw;devShow=false}catch(x){}}
   catch(err){const c=(err&&err.code)||"";devErr=/invalid|wrong|credential|mismatch/.test(c)?"الكود الحالي غلط.":/weak/.test(c)?"الكود الجديد ضعيف، خليه أطول.":/network/.test(c)?"مفيش نت. جرّب تاني.":/too-many/.test(c)?"محاولات كتير، استنى شوية.":"حصل خطأ: "+c}
   render()}
-function credit(){return `<footer class="credit"><span class="devline"><i></i>برمجة ${esc(DEV.name)}</span><span class="ver" onpointerdown="devHold(1)" onpointerup="devHold(0)" onpointerleave="devHold(0)" onpointercancel="devHold(0)" oncontextmenu="return false">${APP_VERSION}</span></footer>${devAsk?devAskBox():""}`}
+function credit(){return `<footer class="credit"><span class="devline"><i></i>برمجة ${esc(DEV.name)}</span><span class="ver" onclick="devTap()">${APP_VERSION}</span></footer>${devAsk?devAskBox():""}`}
 function devInit(){return "م ج"}
 function devCard(){return `<section class="devcard"><div class="dvh"><span class="devava">${esc(devInit())}</span><div><span class="sub">صمّم البرنامج وبرمجه</span><h2>${esc(DEV.name)}</h2><span class="sub">${esc(DEV.title)}</span></div></div>
   <div class="sub">عايز برنامج زي ده لسنترك أو لمكان شغلك؟ كلّمني.</div>
@@ -821,7 +823,7 @@ function staffGuide(){const st=(t,h,d)=>`<div class="gstep"><b class="num">${t}<
   ${st("١","دوس «+ إضافة سكرتير»","اكتب اسمه ورقم الواتساب بتاعه. البرنامج بيعمله كود لوحده، وتقدر تغيّره.")}
   ${st("٢","ابعتله على الواتساب","دوسة واحدة بتفتح شاته والرسالة جاهزة فيها اللينك وكوده. كود التفعيل بتاعك مش بيوصله.")}
   ${st("٣","هو يدخل","يفتح البرنامج، ويدوس «السكرتير»، ويكتب كوده. البرنامج بيفتح عنده على وضع السكرتير على طول، وكل ما يقفل يفتح بنفس الكود.")}
-  ${st("٤","تفتح كصاحب السنتر من موبايله","لازم «قفل البرنامج» يكون شغال عندك. في الصفحة الرئيسية عنده دوس على اللوجو ٥ مرات ورا بعض، واكتب الرقم السري بتاعك بدل كوده. البرنامج بيرجع يقفل لوحده بعد ٣ دقايق. السكرتير نفسه مايقدرش يخرج من وضع السكرتير.")}
+  ${st("٤","تفتح كصاحب السنتر من موبايله","لازم «قفل البرنامج» يكون شغال عندك. دوس على القفل الصغير فوق في الصفحة الرئيسية عنده، واكتب الرقم السري بتاعك بدل كوده. البرنامج بيرجع يقفل لوحده بعد ٣ دقايق. السكرتير نفسه مايقدرش يخرج من وضع السكرتير.")}
   ${st("٥","لو السكرتير مشي","دوس «إخراج» قصاد اسمه. كوده بيتلغي، والبرنامج والداتا بيتمسحوا من موبايله أول ما يتصل بالنت. ولو كلهم مشيوا دوس «كل السكرتارية مشيوا».")}
   ${st("٦","كوده بيشتغل على موبايل واحد","لو فتح بكوده من موبايل جديد، القديم بيخرج لوحده. ولو حسيت إن الكود اتعرف، اشيله وضيفه تاني بكود جديد.")}
   </div></details>`}
@@ -1038,7 +1040,7 @@ function render(){
   if(revokedLocal()){el.innerHTML=viewRevoked()+credit();return}
   if(CLOUD&&authState!=="ready"){el.innerHTML=viewAuth()+credit();return}
   if(needPin()){el.innerHTML=viewLock()+credit();setTimeout(()=>{const i=document.getElementById("pinIn");if(i&&!i.disabled)i.focus()},50);return}
-  if(!isOwner()&&["settings","templates","report","editTeacher","editGroup","addTeacher","addGroup"].includes(v)){nav={view:"home"};v="home"}
+  if(!isOwner()&&["settings","templates","report","editTeacher","addTeacher"].includes(v)){nav={view:"home"};v="home"}
   const vkey=v+"|"+(nav.tid||"")+(nav.gid||"")+(nav.key||""),anim=vkey!==lastViewKey;lastViewKey=vkey;
   el.innerHTML = `<div class="view${anim?" enter":""}">`+(v==="teachers"?viewTeachers(): v==="templates"?viewTemplates(): v==="report"?viewReport(): v==="teacher"?viewTeacher(): v==="group"?viewGroup(): v==="addTeacher"?viewAddTeacher(): v==="addGroup"?viewAddGroup(): v==="student"?viewStudent(): v==="editTeacher"?viewEditTeacher(): v==="editGroup"?viewEditGroup(): v==="unpaid"?viewUnpaid(): v==="settings"?viewSettings(): viewHome())+`</div>`;
   el.insertAdjacentHTML("beforeend",flashBar()+undoBar()+receiptModal()+fab()+navBar());
@@ -1070,7 +1072,7 @@ function viewHome(){
   const ex=expOn()?expTotal(m):0,n=S.teachers.length?unpaidList(m).length:0,bd=backupDays(),pct=stu?pd/stu:0;
   const tile=(cls,js,icon,label,sub)=>`<button class="qa ${cls}" onclick="${js}"><span class="qi">${ic(icon)}</span><b>${label}</b><span class="sub">${sub}</span></button>`;
   return `
-  <header class="hero">${pinsOn()&&!staffDevice()?`<button class="iconbtn" onclick="lockNow()" aria-label="قفل البرنامج">${ic("lock")}</button>`:'<span class="iconsp"></span>'}<img src="${LOGO}" alt="${esc(BRAND.name)} — ${esc(BRAND.latin)}" class="hlogo" onclick="logoTap()"><span class="iconsp"></span></header>
+  <header class="hero">${pinsOn()?`<button class="iconbtn" onclick="lockNow()" aria-label="قفل البرنامج">${ic("lock")}</button>`:'<span class="iconsp"></span>'}<img src="${LOGO}" alt="${esc(BRAND.name)} — ${esc(BRAND.latin)}" class="hlogo" onclick="logoTap()"><span class="iconsp"></span></header>
   ${own?storiesBox():""}
   <div class="monthnav card" id="monthNav"><button onclick="shiftMonth(-1)" aria-label="الشهر اللي فات">›</button><div class="mn"><b>${monthName(m)}</b><span class="sub">${m===curMonth()?"النهاردة "+DAYS[wd]+" "+now.toLocaleDateString("ar-EG",{day:"numeric",month:"long"}):`<button class="linkbtn" onclick="payMonth=curMonth();render()">ارجع للشهر ده</button>`}</span></div><button onclick="shiftMonth(1)" aria-label="الشهر الجاي">‹</button></div>
   ${recoverBox()}${own?(recoverOffer?"":startBox())+closeDue():""}
@@ -1099,7 +1101,7 @@ function startBox(){if(S.settings&&S.settings.setupHidden)return "";const st=set
   <div class="steps">${st.map((x,i)=>`<button class="step ${x.done?"done":x===next?"next":""}" onclick="${x.js}"${x.done?" disabled":""}><span class="sn">${x.done?"✓":arn(i+1)}</span><span class="m"><b>${x.t}</b><span class="sub">${x.d}</span></span>${x===next?'<span class="go">ابدأ ‹</span>':""}</button>`).join("")}</div></section>`}
 function fab(){const v=nav.view,own=isOwner();let label="",js="";
   if(v==="teachers"&&own){label="مدرس";js="go({view:'addTeacher'})"}
-  else if(v==="teacher"&&own&&ttab==="groups"){const t=findTeacher(nav.tid);if(t&&!t.left){const ss=subjectsOf(t);if(ss.length){label="مجموعة";js=`go({view:'addGroup',tid:'${t.id}',sub:'${ss[0].id}'})`}}}
+  else if(v==="teacher"&&(ttab==="groups"||!own)){const t=findTeacher(nav.tid);if(t&&!t.left){const ss=subjectsOf(t);if(ss.length){label="مجموعة";js=`go({view:'addGroup',tid:'${t.id}',sub:'${ss[0].id}'})`}}}
   else if(v==="group"){label="طالب";js="tab='stu';render();setTimeout(()=>{const i=document.getElementById('newStu');if(i){i.scrollIntoView({block:'center'});i.focus()}},60)"}
   return label?`<button class="fab" onclick="${js}" aria-label="إضافة ${label}">${ic("plus")}<span>${label}</span></button>`:""}
 function viewTeachers(){const m=payMonth,own=isOwner();
@@ -1146,7 +1148,7 @@ function viewTeacher(){
   ${tb==="money"?accountsBox(t):tb==="close"?(ng?teacherReportBox(t)+pdfBox(t):`<div class="empty">ضيف مجموعة الأول عشان تعمل التقفيلة.</div>`):`  ${subjectsOf(t).length||!isOwner()?"":`<section class="subj"><h2>أول مادة للمدرس</h2><div class="sub">ضيف المادة أو السنة الدراسية ونسبة السنتر منها، وبعدين ضيف مجاميعها جواها.</div>${subForm(t,null)}</section>`}
   ${subjectsOf(t).map(sub=>{const gs=(t.groups||[]).filter(g=>g.subjectId===sub.id),sh=shareOfSub(sub);
     return `<section class="subj"><div class="bar" style="justify-content:space-between"><div><h2>${esc(sub.name||"المجاميع")}</h2>${isOwner()?`<span class="sub">نسبة السنتر: ${shareTxtS(sh)}</span>`:""}</div>
-      ${isOwner()?`<div class="bar"><button class="btn ghost" onclick="subEdit='${sub.id}';render()">تعديل</button><button class="btn ghost" onclick="go({view:'addGroup',tid:'${t.id}',sub:'${sub.id}'})">+ مجموعة</button></div>`:""}</div>
+      ${isOwner()?`<div class="bar"><button class="btn ghost" onclick="subEdit='${sub.id}';render()">تعديل</button><button class="btn ghost" onclick="go({view:'addGroup',tid:'${t.id}',sub:'${sub.id}'})">+ مجموعة</button></div>`:`<button class="btn ghost" onclick="go({view:'addGroup',tid:'${t.id}',sub:'${sub.id}'})">+ مجموعة</button>`}</div>
       ${subEdit===sub.id?subForm(t,sub):""}
       <div class="list">${gs.length?gs.map(g=>{const ml=monthSt(g,payMonth),paid=ml.filter(x=>isPaid(g,x,payMonth)).length;
         return `<button class="row tg" onclick="openGroup('${g.id}')"><span class="m"><h3>${esc(g.name)}</h3><span class="sub">${daysTxt(g)} · ${fmtTime(g.time)} · ${arn(activeSt(g).length)} طالب</span>
@@ -1201,7 +1203,7 @@ function viewGroup(){
   }
   return `
   <div class="top"><button class="back" onclick="go({view:'teacher',tid:'${t.id}'})" aria-label="رجوع">›</button>
-    <div class="t"><h1>${esc(g.name)}</h1><div class="sub">${esc(t.name)} · ${daysTxt(g)} · ${fmtTime(g.time)} · ${arn(+g.fee||0)} ج</div></div>${isOwner()?`<button class="btn ghost" onclick="go({view:'editGroup',gid:'${g.id}'})">تعديل</button>`:""}</div>
+    <div class="t"><h1>${esc(g.name)}</h1><div class="sub">${esc(t.name)} · ${daysTxt(g)} · ${fmtTime(g.time)} · ${arn(+g.fee||0)} ج</div></div>${true?`<button class="btn ghost" onclick="go({view:'editGroup',gid:'${g.id}'})">تعديل</button>`:""}</div>
   <div class="tabs" role="tablist">
     <button role="tab" aria-selected="${tab==="pay"}" onclick="tab='pay';render()">الدفع</button>
     <button role="tab" aria-selected="${tab==="stu"}" onclick="tab='stu';render()">الطلاب</button></div>
@@ -1242,6 +1244,8 @@ function backupBox(){
   const lb=lastBackup(),open=!!(backupImg||backupMsg||restorePending);
   return `<details class="form backup"${open?" open":""}><summary><b>النسخة الاحتياطية</b><span class="sub">${lb?"آخر نسخة: "+esc(lb):"لسه ما اتعملتش"}</span></summary>
     ${CLOUD?"":`<div class="sub">البيانات على الجهاز ده بس، اعمل نسخة كل أسبوع.</div>`}
+    ${CLOUD?`<div class="autobk"><div class="bar" style="justify-content:space-between"><div><b>النسخ التلقائية</b><div class="sub">البرنامج بياخد نسخة لوحده كل يوم، وبيحتفظ بآخر ١٤ يوم.</div></div>${autoList&&autoList!=="loading"&&autoList!=="error"?"":`<button class="btn ghost sm" onclick="loadAutoList()">${autoList==="loading"?"جاري…":"عرض"}</button>`}</div>
+      ${autoList==="error"?`<div class="note">ماقدرتش أجيب النسخ. اتأكد من النت ومن قواعد Firebase.</div>`:Array.isArray(autoList)?(autoList.length?`<div class="rtable">${autoList.map(x=>`<div class="rrow"><span class="m"><b>${esc(x.id)}</b><span class="sub">${arn(x.n)} مدرس</span></span><button class="btn ghost sm" onclick="useAuto('${x.id}')">رجّعها</button></div>`).join("")}</div>`:`<div class="sub">لسه مفيش نسخ. أول نسخة بتتعمل النهاردة.</div>`):""}</div>`:""}
     <div class="bar"><button class="btn" onclick="prepareBackup()">عمل صورة النسخة</button>
     <label class="btn ghost" for="restoreFile">استرجاع</label>
     <input type="file" id="restoreFile" accept="image/png,image/*,.json,application/json" hidden onchange="restoreBackup(this)">
@@ -1257,6 +1261,16 @@ function backupBox(){
     <textarea id="backupText" hidden readonly style="width:100%;height:90px;font:12px monospace;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px"></textarea>
   </details>`;
 }
+async function gz(str){try{if(!window.CompressionStream)return null;const cs=new Blob([str]).stream().pipeThrough(new CompressionStream("gzip"));return b64(await new Response(cs).arrayBuffer())}catch(e){return null}}
+async function gunz(b){const ds=new Blob([ub64(b)]).stream().pipeThrough(new DecompressionStream("gzip"));return await new Response(ds).text()}
+function bkCol(){return fsdb.collection("centers").doc(cuser.uid).collection("backups")}
+async function autoBackup(){try{if(!(CLOUD&&cuser&&coreLoaded&&fsdb)||wiping||!(S.teachers||[]).length||!isOwner())return;const day=todayISO(),k="center-autoBk-"+cuser.uid;
+  if(localStorage.getItem(k)===day)return;const j=backupJSON(),z=await gz(j),doc={at:new Date().toISOString(),teachers:S.teachers.length};if(z)doc.z=z;else doc.j=j;
+  if((doc.z||doc.j).length>900000)return;await bkCol().doc(day).set(doc);localStorage.setItem(k,day);
+  const all=await bkCol().get(),ids=all.docs.map(d=>d.id).sort();for(const id of ids.slice(0,Math.max(0,ids.length-14))){try{await bkCol().doc(id).delete()}catch(e){}}}catch(e){}}
+var autoList=null;
+async function loadAutoList(){autoList="loading";render();try{const all=await bkCol().get();autoList=all.docs.map(d=>({id:d.id,at:(d.data()||{}).at,n:(d.data()||{}).teachers||0})).sort((a,b)=>a.id<b.id?1:-1)}catch(e){autoList="error"}render()}
+async function useAuto(id){try{const sn=await bkCol().doc(id).get();const d=sn.data()||{};const j=d.z?await gunz(d.z):d.j;offerRestore(JSON.parse(j))}catch(e){backupMsg="ماقدرتش أفتح النسخة دي.";render()}}
 function backupJSON(){return JSON.stringify({app:"center",savedAt:new Date().toISOString(),data:S})}
 function markBackup(){const d=new Date().toLocaleString("ar-EG",{day:"numeric",month:"long",hour:"numeric",minute:"2-digit"});try{localStorage.setItem("center-lastBackup",d);localStorage.setItem("center-lastBackupAt",String(Date.now()))}catch(e){}}
 function backupDays(){try{const v=+localStorage.getItem("center-lastBackupAt");return v?Math.floor((Date.now()-v)/864e5):null}catch(e){return null}}
@@ -1772,7 +1786,7 @@ function viewEditGroup(){
     return `<div class="form"><b>الطلبة بدأوا من شهر</b><div class="sub">الطالب بيظهر في الحسابات من الشهر اللي بدأ فيه. لو عايز طلبة المجموعة دي يظهروا في شهر قبل كده (مثلًا عشان تقفل شهر فات)، اختاره هنا ويتطبّق على كل الطلبة الحاليين (${arn(st.length)}).</div>
     <div class="f"><label class="lbl" for="gjM">من شهر</label><input type="month" id="gjM" value="${j0}"></div>
     <button class="btn" onclick="setGroupJoined()">طبّق على كل الطلبة</button></div>`})()}
-  <div class="form danger"><b>حذف المجموعة</b>${gHistory(g)?`<div class="sub"><b>المجموعة دي ليها دفع متسجل في شهور فاتت.</b> لو مسحتها هتضيع من كل الشهور. لو المجموعة خلصت، سيبها وامسح طلبتها (بيتأرشفوا ويفضلوا في الشهور اللي فاتت).</div>
+  ${isOwner()?"":`<div class="sub">حذف المجموعة لصاحب السنتر بس.</div>`}<div class="form danger ownonly"><b>حذف المجموعة</b>${gHistory(g)?`<div class="sub"><b>المجموعة دي ليها دفع متسجل في شهور فاتت.</b> لو مسحتها هتضيع من كل الشهور. لو المجموعة خلصت، سيبها وامسح طلبتها (بيتأرشفوا ويفضلوا في الشهور اللي فاتت).</div>
     ${delAsk==="g"+g.id?`<div class="f"><label class="lbl" for="delName">عشان تمسحها نهائيًا، اكتب اسمها: <b>${esc(g.name)}</b></label><input id="delName" autocomplete="off"></div><div class="bar"><button class="btn delbtn" onclick="delGroupHard()">امسح نهائيًا</button><button class="btn ghost" onclick="delAsk=null;render()">إلغاء</button></div>`
       :`<button class="btn delbtn" onclick="delAsk='g${g.id}';render()">حذف المجموعة</button>`}`
     :`<div class="sub">هيتمسح ${arn(ns)} طالب.</div><button class="btn delbtn" onclick="delGroup()">حذف المجموعة</button>`}</div>`;
@@ -1981,7 +1995,7 @@ function viewSettings(){
   <button class="row" onclick="go({view:'templates'})"><span class="m"><h3>رسايل الواتساب</h3><span class="sub">صيغة التذكير والإيصال والتقفيلة وقايمة اللي مادفعوش</span></span><span class="chev">‹</span></button>
   ${backupBox()}
   <div class="sect">عن البرنامج</div>
-  <section class="form about"><div class="kv"><span>السنتر</span><b>${esc(BRAND.name)}</b></div><div class="kv nosel" onpointerdown="devHold(1)" onpointerup="devHold(0)" onpointerleave="devHold(0)" onpointercancel="devHold(0)" oncontextmenu="return false"><span>الإصدار</span><b dir="ltr">${APP_VERSION}</b></div><div class="kv"><span>البرمجة</span><span>${esc(DEV.name)}</span></div><div class="kv"><span>الدعم الفني</span><a class="phone" href="tel:${esc(DEV.phone)}" dir="ltr">${esc(DEV.phone)}</a></div></section>
+  <section class="form about"><div class="kv"><span>السنتر</span><b>${esc(BRAND.name)}</b></div><div class="kv nosel" onclick="devTap()"><span>الإصدار</span><b dir="ltr">${APP_VERSION}</b></div><div class="kv"><span>البرمجة</span><span>${esc(DEV.name)}</span></div><div class="kv"><span>الدعم الفني</span><a class="phone" href="tel:${esc(DEV.phone)}" dir="ltr">${esc(DEV.phone)}</a></div></section>
   <button class="logoutbtn" onclick="signOutNow(this)">${ic("lock")}<span>تسجيل الخروج</span></button>`}
 function viewTemplates(){
   const box=(k,title)=>`<section class="form"><h2>${title}</h2>
