@@ -124,7 +124,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .tabs button{flex:1;border:0;background:transparent;border-radius:9px;padding:8px 4px;font-weight:600;color:var(--muted)}
 .tabs button[aria-selected="true"]{background:var(--accent);color:#fff}
 .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-input,select{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
+input,select,#jDesc{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
 .stat b{display:block;font-family:var(--display);font-size:1.3rem;font-variant-numeric:tabular-nums}
@@ -401,6 +401,14 @@ body{background:radial-gradient(900px 380px at 50% -200px,rgba(216,56,63,.10),tr
 .jin-b{display:flex;gap:8px;justify-content:center}.jin-t{display:flex;flex-direction:column;gap:8px}.jin-t>.sub{text-align:center}
 .jin-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
 .jtc{display:flex;flex-direction:column;gap:6px;align-items:center;text-align:center;padding:12px 10px;border-radius:16px;background:var(--bg);border:1px solid var(--line)}
+.jin-d{white-space:pre-line;text-align:center;line-height:1.8;color:var(--ink);padding:0 4px}
+.jin-yt{display:flex;align-items:center;justify-content:center;gap:6px;font-weight:800;color:var(--accent)}.jin-yt svg{width:18px;height:18px}
+.jcl{display:flex;flex-direction:column;gap:4px;align-items:center;width:100%;padding-top:6px;border-top:1px dashed var(--line)}.jcl:first-of-type{border-top:0;padding-top:0}
+.jgt{font-size:.85rem;color:var(--muted)}
+.jin-l{display:flex;flex-direction:column;gap:8px;align-items:center}.jin-lk{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.jlk{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:99px;border:1px solid var(--line);background:var(--bg);color:var(--ink);text-decoration:none;font-weight:700;font-size:.85rem}
+.jlk svg{color:var(--accent)}
+#jPhone,#jDesc{width:100%;resize:vertical;line-height:1.7}.jlinks{display:flex;flex-direction:column;gap:8px}.jlrow input{width:100%}.jlrow{display:flex;flex-direction:column;gap:4px}.jlrow span{font-size:.82rem;font-weight:700;color:var(--muted)}
 .jsubs{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}.jsubs span{padding:3px 10px;border-radius:99px;font-size:.78rem;font-weight:700;background:var(--accent-soft,color-mix(in srgb,var(--accent) 14%,transparent));color:var(--accent)}
 .stabs{margin:4px 0 8px}.tbadge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--bad);color:#fff;font-size:.72rem;margin-inline-start:4px}
 .joinbox .hashbox{font-size:.78rem;word-break:break-all}.qrbox{display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px;background:#fff;border-radius:16px}.qrbox svg{width:210px;height:210px}.qrbox .btn{color:#111;border-color:#cfcfcf;background:#fff}
@@ -588,7 +596,7 @@ function accountsBox(t){
    Leave it as null and the app works on the device only (local mode). */
 const FIREBASE_CONFIG={apiKey:"AIzaSyB3TNutgwCeZZ0mHygE0NI8yCh9m7x6-oI",authDomain:"jimswani-centers.firebaseapp.com",projectId:"jimswani-centers",storageBucket:"jimswani-centers.firebasestorage.app",messagingSenderId:"809726548597",appId:"1:809726548597:web:986921d2087b145af3f63c"};
 const CLOUD=!!(FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey);
-const APP_VERSION="3.6";
+const APP_VERSION="3.8";
 const DEV={name:"م/ محمد جمال",phone:"01069982196",title:"مهندس برمجيات · برامج حسابات السناتر",handle:"jimswani",fb:"https://www.facebook.com/profile.php?id=61588021126316",tiktok:"https://www.tiktok.com/@jimswani"};
 function devWa(){return "https://wa.me/2"+DEV.phone+"?text="+encodeURIComponent("السلام عليكم يا بشمهندس، شفت برنامج "+BRAND.name+" وعايز برنامج زيه لسنتري")}
 let db=null, ref=null, saveTimer=null, saving=false, pending=false, offline=false, dirty=false;
@@ -1137,20 +1145,27 @@ function fab(){const v=nav.view,own=isOwner();let label="",js="";
 
 /* ================= public sign-up link: ?join=CODE  (students add themselves; nothing else is readable) ================= */
 const JOIN=(()=>{try{const c=new URLSearchParams(location.search).get("join");return c&&/^[a-z0-9]{6,16}$/.test(c)?c:null}catch(e){return null}})();
-var jState="loading",jInfo=null,jErr="",jYear="";
+var jState="loading",jInfo=null,jErr="",jYear="",jMyYear="";
 async function startJoin(){if(!CLOUD){jState="closed";render();return}const V="10.12.2",B="https://www.gstatic.com/firebasejs/"+V+"/";
   try{await loadScript(B+"firebase-app-compat.js");await loadScript(B+"firebase-firestore-compat.js")}catch(e){jState="net";render();return}
   try{firebase.initializeApp(FIREBASE_CONFIG)}catch(e){}fsdb=firebase.firestore();joinCheck()}
 async function joinCheck(){
   try{const sn=await fsdb.collection("joins").doc(JOIN).get();if(!sn.exists){jState="closed";render();return}jInfo=sn.data();jState=jInfo.open?"form":"closed"}catch(e){jState="net"}
-  try{if(localStorage.getItem("center-joined-"+JOIN)&&jState==="form")jState="done"}catch(e){}render()}
+  try{const v=localStorage.getItem("center-joined-"+JOIN);if(v&&jState==="form"){jState="done";jMyYear=v==="1"?"":v}}catch(e){}render()}
 function yName(k){const y=YEARS.find(x=>x[0]===k);return y?y[1]:k}
-function jIntro(){const i=jInfo||{},T=Array.isArray(i.teachers)?i.teachers:[],ph=String(i.phone||"").replace(/[^\d+]/g,"");
-  if(!ph&&!T.length)return "";
+const JLI={fb:'<path d="M14 8h3V4h-3a4 4 0 0 0-4 4v3H7v4h3v6h4v-6h3l1-4h-4V8a0 0 0 0 1 0 0z"/>',ig:'<rect x="4" y="4" width="16" height="16" rx="5"/><circle cx="12" cy="12" r="3.6"/><circle cx="17" cy="7" r=".6"/>',tt:'<path d="M14 4v10.5a3.5 3.5 0 1 1-3.5-3.5"/><path d="M14 4c.5 2.6 2.3 4.2 5 4.4"/>',yt:'<rect x="3" y="6" width="18" height="12" rx="4"/><path d="M10.5 9.5v5l4.5-2.5z"/>',wa:'<path d="M4 20l1.4-4A8 8 0 1 1 9 19.6z"/>',map:'<path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z"/><circle cx="12" cy="10" r="2.3"/>'};
+function jIntro(){const i=jInfo||{},ph=String(i.phone||"").replace(/[^\d+]/g,""),ds=String(i.desc||"").trim(),lk=i.links||{};
+  const links=JLINKS.filter(([k])=>typeof lk[k]==="string"&&/^https?:\/\//i.test(lk[k]));
+  const yr=jMyYear,C=Array.isArray(i.cls)?i.cls.filter(x=>yMatch(x.y,yr)):[];
+  const byT=[];C.forEach(x=>{let e=byT.find(z=>z.n===x.n);if(!e){e={n:x.n,L:[]};byT.push(e)}e.L.push(x)});
+  if(!ph&&!ds&&!links.length&&!byT.length)return "";
   const d=digits(ph),wa=d.startsWith("01")?"2"+d:d;
+  const gTxt=g=>{const dd=(g.d||[]).filter(x=>DAYS[x]).map(x=>DAYS[x]).join(" و");return dd&&g.t?dd+" الساعة "+fmtTime(g.t):(dd||(g.t?"الساعة "+fmtTime(g.t):""))};
   return `<div class="jintro"><div class="jin-h"><b>${esc(BRAND.name)}</b><span class="sub">تعرّف على السنتر</span></div>
+    ${ds?`<div class="jin-d">${esc(ds)}</div>`:""}
+    ${byT.length?`<div class="jin-t"><div class="jin-yt">${ic("teachers")} مدرسين ${esc(yName(yr))} ومواعيدهم</div><div class="jin-g">${byT.map(t=>`<div class="jtc"><b>${esc(t.n||"")}</b>${t.L.map(x=>`<div class="jcl">${x.s?`<div class="jsubs"><span>${esc(x.s)}</span></div>`:""}${(x.g||[]).map(g=>gTxt(g)).filter(Boolean).map(z=>`<div class="jgt">${esc(z)}</div>`).join("")}</div>`).join("")}</div>`).join("")}</div></div>`:""}
     ${ph?`<div class="jin-ph"><span class="sub">رقم صاحب السنتر</span><b dir="ltr">${esc(ph)}</b><div class="jin-b"><a class="btn sm" href="tel:${esc(ph)}">اتصل</a>${wa?`<a class="btn ghost sm" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">واتساب</a>`:""}</div></div>`:""}
-    ${T.length?`<div class="jin-t"><div class="sub">المدرسين والمواد</div><div class="jin-g">${T.map(t=>`<div class="jtc"><b>${esc(t.n||"")}</b>${(t.s||[]).length?`<div class="jsubs">${t.s.map(x=>`<span>${esc(x)}</span>`).join("")}</div>`:""}</div>`).join("")}</div></div>`:""}</div>`}
+    ${links.length?`<div class="jin-l"><div class="sub">تابعنا</div><div class="jin-lk">${links.map(([k,n])=>`<a class="jlk jlk-${k}" href="${esc(lk[k])}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${JLI[k]}</svg>${esc(n)}</a>`).join("")}</div></div>`:""}</div>`}
 function viewJoin(){const top=`<div class="gtop sm"><div class="glow"></div><img src="${LOGO}" alt="${esc(BRAND.name)}" class="glogo"></div>`;
   if(jState==="loading")return `<div class="gate">${top}<div class="sub center">لحظة…</div></div>`;
   if(jState==="net")return `<div class="gate">${top}<form class="gform"><h2>مفيش نت</h2><div class="sub">اتأكد إن النت شغال وافتح اللينك تاني.</div><button type="button" class="btn" onclick="location.reload()">جرّب تاني</button></form></div>`;
@@ -1171,11 +1186,11 @@ async function sendJoin(e){e.preventDefault();jKeep();const name=(jDraft.jName||
   if(name.length<3)jErr="اكتب اسم الطالب كامل.";else if(!mob)jErr="رقم الطالب لازم يكون ١١ رقم ويبدأ بـ 01.";else if(!par)jErr="رقم ولي الأمر لازم يكون ١١ رقم ويبدأ بـ 01.";else if(!jYear)jErr="اختار السنة الدراسية.";else if(jYear==="o"&&(jDraft.jOther||"").trim().length<3)jErr="اكتب السنة الدراسية.";
   if(jErr){render();jFill();return}jState="sending";render();jFill();
   try{const FV=firebase.firestore.FieldValue;await fsdb.collection("centers").doc(jInfo.uid).collection("requests").add(Object.assign({name,mobile:mob,phone:par,year:jYear,code:JOIN,status:"new",at:FV?FV.serverTimestamp():new Date()},jYear==="o"?{other:(jDraft.jOther||"").trim().slice(0,40)}:{}));
-    try{localStorage.setItem("center-joined-"+JOIN,"1")}catch(x){}jDraft={};jState="done"}
+    jMyYear=jYear==="o"?yearKey((jDraft.jOther||"").trim()):jYear;try{localStorage.setItem("center-joined-"+JOIN,jMyYear||"1")}catch(x){}jDraft={};jState="done"}
   catch(err){jState="form";jErr=/permission/.test((err&&err.code)||"")?"التسجيل اتقفل. كلّم السنتر.":"ماوصلش. اتأكد من النت وجرّب تاني."}render();jFill()}
 
 /* ================= sign-up requests inside the app ================= */
-var REQS=[],reqLoaded=false,reqSig="",stab="all",rYear="",rAssign=null,showQR=false;
+var jsOpen=false,REQS=[],reqLoaded=false,reqSig="",stab="all",rYear="",rAssign=null,showQR=false;
 function reqNew(){return REQS.filter(r=>r.status==="new").length}
 function joinCfg(){return S.settings.join||null}
 function joinLink(){const c=joinCfg();return c?location.origin+location.pathname+"?join="+c.code:""}
@@ -1183,16 +1198,27 @@ var joinSig="",joinTimer=null;
 function joinPub(){const c=joinCfg();if(!c||!cuser)return null;
   const o={uid:cuser.uid,open:!!c.open,years:c.years||["s1","s2","s3"],center:BRAND.name};
   const ph=String(c.phone||"").replace(/[^\d+]/g,"").slice(0,16);if(ph)o.phone=ph;
+  const ds=String(c.desc||"").trim().slice(0,600);if(ds)o.desc=ds;
+  const lk={};JLINKS.forEach(([k])=>{const u=jUrl((c.links||{})[k]);if(u)lk[k]=u});if(Object.keys(lk).length)o.links=lk;
   if(c.showT!==false){const m=curMonth(),L=[];(S.teachers||[]).forEach(t=>{if(!t||!t.name||!tActive(t,m))return;
-    const names=Array.isArray(t.subjects)&&t.subjects.length?t.subjects.map(x=>x&&x.name):(t.subject?[t.subject]:[]);
-    L.push({n:String(t.name).slice(0,40),s:names.filter(Boolean).slice(0,8).map(x=>String(x).slice(0,40))})});
-    if(L.length)o.teachers=L.slice(0,40)}
+    (t.groups||[]).forEach(g=>{const y=yearOfGroup(t,g);if(!y||y==="x")return;const sn=subName(subOf(t,g).name||"");
+      let e=L.find(x=>x.n===String(t.name).slice(0,40)&&x.s===sn&&x.y===y);if(!e){e={n:String(t.name).slice(0,40),s:sn,y,g:[]};L.push(e)}
+      if(e.g.length<8)e.g.push({d:[...new Set((g.days||[]).filter(d=>d>=0&&d<=6))].sort((a,b)=>DORD.indexOf(a)-DORD.indexOf(b)),t:/^\d{1,2}:\d{2}$/.test(g.time||"")?g.time:""})})});
+    if(L.length)o.cls=L.slice(0,80)}
   return o}
 async function joinPublish(){const c=joinCfg();if(!c||!fsdb||!cuser)return;try{const o=joinPub();await fsdb.collection("joins").doc(c.code).set(o);joinSig=JSON.stringify(o)}catch(e){flash("ماقدرتش أحدّث اللينك. اتأكد من النت ومن قواعد Firebase.")}}
 /* keep the public "تم التسجيل" card up to date: after any change in teachers/subjects/phone, republish (only when something really changed) */
 function joinSyncSoon(){if(!(CLOUD&&cuser&&fsdb)||!joinCfg())return;clearTimeout(joinTimer);
   joinTimer=setTimeout(async()=>{try{if(!isOwner()||!joinCfg()||!fsdb||!cuser)return;const o=joinPub();if(!o)return;const sig=JSON.stringify(o);if(sig===joinSig)return;await fsdb.collection("joins").doc(joinCfg().code).set(o);joinSig=sig}catch(e){}},2500)}
 function joinPhone(v){const c=joinCfg();if(!c)return;c.phone=String(v||"").replace(/[^\d+]/g,"").slice(0,16);save();flash("اتحفظ ✓");render()}
+const JLINKS=[["fb","فيسبوك","https://facebook.com/..."],["ig","إنستجرام","https://instagram.com/..."],["tt","تيك توك","https://tiktok.com/@..."],["yt","يوتيوب","https://youtube.com/..."],["wa","جروب / قناة واتساب","https://chat.whatsapp.com/..."],["map","لوكيشن السنتر","https://maps.app.goo.gl/..."]];
+const DORD=[6,0,1,2,3,4,5];
+function jUrl(v){let u=String(v||"").trim();if(!u)return "";if(!/^https?:\/\//i.test(u))u="https://"+u.replace(/^\/+/,"");try{const x=new URL(u);if(!/^https?:$/.test(x.protocol)||!/\./.test(x.hostname))return ""}catch(e){return ""}return u.slice(0,300)}
+function subName(n){const r=String(n||"").replace(/\s*[-—–|·:،,(]?\s*(لل|ل|ال)?(أول[ىيه]?|اول[ىيه]?|تاني[ةه]?|ثاني[ةه]?|تالت[ةه]?|ثالث[ةه]?|رابع[ةه]?|خامس[ةه]?|سادس[ةه]?)\s+(ال)?(ثانوي|إعدادي|اعدادي|ابتدائي)[ةه]?\)?/g,"").replace(/\s*[-—–|·:،,]\s*$/,"").trim();return (r||String(n||"")).slice(0,40)}
+function yMatch(gy,sy){if(!gy||!sy||gy==="x"||sy==="x"||sy==="o")return false;if(gy===sy)return true;return gy[0]==="n"&&gy.slice(1)===sy.slice(1)}
+function joinDesc(v){const c=joinCfg();if(!c)return;c.desc=String(v||"").slice(0,600);save();flash("اتحفظ ✓")}
+function joinLinkSet(k,v){const c=joinCfg();if(!c)return;c.links=c.links||{};const raw=String(v||"").trim();if(raw&&!jUrl(raw)){flash("اللينك ده مش صح. انسخه من التطبيق والصقه هنا.");render();return}if(raw)c.links[k]=jUrl(raw);else delete c.links[k];save();flash("اتحفظ ✓");render()}
+function joinNoYear(){const m=curMonth(),L=[];(S.teachers||[]).forEach(t=>{if(!tActive(t,m))return;(t.groups||[]).forEach(g=>{if(subOf(t,g).year==="-")return;const y=yearOfGroup(t,g);if(!y||y==="x")L.push(t.name+" · "+g.name)})});return L}
 function joinShowT(){const c=joinCfg();if(!c)return;c.showT=c.showT===false;save();render()}
 function joinCode(){const a=new Uint8Array(8);crypto.getRandomValues(a);return [...a].map(x=>"abcdefghjkmnpqrstuvwxyz23456789"[x%31]).join("")}
 async function joinCreate(){S.settings.join={code:joinCode(),open:true,years:["s1","s2","s3"]};save();await joinPublish();render()}
@@ -1223,11 +1249,18 @@ function joinBox(){const c=joinCfg();if(!isOwner())return "";
     ${showQR?`<div class="qrbox">${qrSVG(joinLink())}<button class="btn ghost sm" onclick="qrPNG()">حفظ / مشاركة صورة الكود</button></div>`:""}
     <details class="jset"><summary class="sub">السنين اللي بتظهر في اللينك · لينك جديد</summary><div class="ychips wrap">${YEARS.filter(y=>!/^n|^x/.test(y[0])).map(y=>`<button class="ychip${(c.years||[]).includes(y[0])?" on":""}" onclick="joinYear('${y[0]}')"><b>${esc(y[1])}</b></button>`).join("")}</div>
     <button class="x" onclick="joinRenew(this)">اعمل لينك جديد (القديم يبطل)</button></details>
-    <details class="jset"><summary class="sub">صفحة «تم التسجيل» · رقمك والمدرسين</summary>
-      <div class="sub">الطالب بعد ما يسجّل بيشوف بطاقة تعريفية بالسنتر. اكتب رقمك وهيظهر عليها.</div>
-      <input id="jPhone" type="tel" inputmode="tel" dir="ltr" maxlength="16" placeholder="رقم صاحب السنتر" value="${esc(c.phone||"")}" onchange="joinPhone(this.value)">
-      <div class="bar" style="justify-content:space-between"><span class="sub">أظهر المدرسين والمواد</span><button class="switch ${c.showT!==false?"on":""}" role="switch" aria-checked="${c.showT!==false}" onclick="joinShowT()" aria-label="أظهر المدرسين والمواد"><i></i></button></div>
-      <div class="sub">بيظهر اسم كل مدرس ومواده بس، من غير أرقامهم.</div></details></section>`}
+    <details class="jset"${jsOpen?" open":""} ontoggle="jsOpen=this.open"><summary class="sub">صفحة «تم التسجيل» · التعريف والمواعيد واللينكات</summary>
+      <div class="sub">الطالب بعد ما يسجّل بيشوف بطاقة تعريفية بالسنتر فيها الكلام ده.</div>
+      <label class="lbl" for="jDesc">وصف السنتر</label>
+      <textarea id="jDesc" rows="4" maxlength="600" placeholder="مثلًا: سنتر لكل المواد لثانوي، قاعات مكيفة، ومتابعة مستمرة مع ولي الأمر." onchange="joinDesc(this.value)">${esc(c.desc||"")}</textarea>
+      <label class="lbl" for="jPhone">رقم صاحب السنتر</label>
+      <input id="jPhone" type="tel" inputmode="tel" dir="ltr" maxlength="16" placeholder="01xxxxxxxxx" value="${esc(c.phone||"")}" onchange="joinPhone(this.value)">
+      <div class="bar" style="justify-content:space-between"><span class="sub">أظهر المدرسين والمواعيد</span><button class="switch ${c.showT!==false?"on":""}" role="switch" aria-checked="${c.showT!==false}" onclick="joinShowT()" aria-label="أظهر المدرسين والمواعيد"><i></i></button></div>
+      <div class="sub">كل طالب بيشوف مدرسين سنته بس ومواعيد مجاميعهم، من غير أرقام المدرسين.</div>
+      ${c.showT!==false&&joinNoYear().length?`<div class="note">المجاميع دي مش هتظهر لأن سنتها مش مكتوبة: ${esc(joinNoYear().slice(0,6).join("، "))}${joinNoYear().length>6?" …":""}. افتح المادة واختار سنتها من «السنة الدراسية».</div>`:""}
+      <div class="lbl">لينكات السوشيال ميديا</div>
+      <div class="jlinks">${JLINKS.map(([k,n,ph])=>`<label class="jlrow"><span>${esc(n)}</span><input type="url" inputmode="url" dir="ltr" maxlength="300" placeholder="${ph}" value="${esc((c.links||{})[k]||"")}" onchange="joinLinkSet('${k}',this.value)"></label>`).join("")}</div>
+      <div class="sub">سيب الخانة فاضية لو مش عايزها تظهر.</div></details></section>`}
 function reqYear(r){if(r.year!=="o")return r.year;const k=yearKey(r.other||"");return k!=="x"&&!/^n/.test(k)?k:"o"}
 function reqYName(r){return r.year==="o"?(r.other||"سنة تانية"):yName(r.year)}
 function viewRequests(){const all=REQS.slice().sort((a,b)=>(a.status==="new"?0:1)-(b.status==="new"?0:1)||((b.t||0)-(a.t||0)));
@@ -1256,7 +1289,7 @@ function yearKey(txt){let x=normAr(txt);let st="";if(/ثانوي|ثانويه/.t
   if(/(^|\s)(ال)?(اول|اولي|اوله|اولى)(\s|$)/.test(x))n=1;else if(/(^|\s)(ال)?(ثاني|تاني|ثانيه|تانيه|ثانية|تانية)(\s|$)/.test(x))n=2;else if(/(^|\s)(ال)?(ثالث|تالت|ثالثه|تالته)(\s|$)/.test(x))n=3;
   else if(/(^|\s)(ال)?(رابع|رابعه)(\s|$)/.test(x))n=4;else if(/(^|\s)(ال)?(خامس|خامسه)(\s|$)/.test(x))n=5;else if(/(^|\s)(ال)?(سادس|سادسه)(\s|$)/.test(x))n=6;
   if(!n)return "x";if(st==="s"||st==="m")return n<=3?st+n:"x";if(st==="p")return "p"+n;return "n"+n}
-function yearOfGroup(t,g){const a=yearKey(subOf(t,g).name||"");return a!=="x"?a:yearKey(g.name||"")}
+function yearOfGroup(t,g){const sb=subOf(t,g);if(sb&&sb.year)return sb.year==="-"?"x":sb.year;const a=yearKey(sb.name||"");return a!=="x"?a:yearKey(g.name||"")}
 var yQ="",yOpen="";
 function allStudentsByYear(){const m=payMonth,map={};S.teachers.forEach(t=>{if(!tActive(t,m))return;(t.groups||[]).forEach(g=>{const y=yearOfGroup(t,g);activeSt(g).forEach(s=>{
     const key=digits(s.mobile)||digits(s.phone)?(digits(s.mobile)||"")+"|"+(digits(s.phone)||""):"n:"+normAr(s.name);(map[y]=map[y]||new Map());const M=map[y];
@@ -1511,7 +1544,7 @@ var backupImg=null;
 function loadImg(src){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=src})}
 var AR=n=>Number(n||0).toLocaleString("ar-EG");
 async function buildBackupPNG(){
-  const bytes=new TextEncoder().encode(backupJSON());
+  const bytes=new TextEncoder().encode(backupJSON(true));
   let sum=0;for(let i=0;i<bytes.length;i++)sum=(sum+bytes[i]*((i%251)+1))>>>0;
   const all=new Uint8Array(12+bytes.length);all.set(BK_MAGIC);
   const dv=new DataView(all.buffer);dv.setUint32(4,bytes.length);dv.setUint32(8,sum);all.set(bytes,12);
@@ -1833,7 +1866,7 @@ async function deliverBackup(o){
   render();
 }
 async function copyBackup(){
-  const txt=backupJSON();
+  const txt=backupJSON(true);
   try{await navigator.clipboard.writeText(txt);markBackup();backupMsg="اتنسخت. الصقها في رسالة واتساب لنفسك.";render()}
   catch(e){backupMsg="النسخ التلقائي مش شغال — حدد النص اللي تحت وانسخه.";render();const t=document.getElementById("backupText");t.hidden=false;t.value=txt;t.select()}
 }
@@ -2260,14 +2293,22 @@ function resetTpl(k){if(S.settings&&S.settings.tpl)delete S.settings.tpl[k];save
 var subEdit=null;
 function subForm(t,sub){const sh=sub?shareOfSub(sub):{type:"pct",value:0},canDel=sub&&!(t.groups||[]).some(g=>g.subjectId===sub.id);
   return `<form class="form subform" onsubmit="saveSubject(event,'${t.id}','${sub?sub.id:""}')">
-    <div class="f"><label class="lbl" for="sbName">المادة / السنة الدراسية</label><input id="sbName" required value="${esc(sub?sub.name:"")}" placeholder="كيمياء — تانية ثانوي"></div>
+    <div class="f"><label class="lbl" for="sbName">المادة</label><input id="sbName" required value="${esc(sub?subName(sub.name):"")}" placeholder="كيمياء" oninput="sbAuto(this.value)"></div>
+    <div class="f"><label class="lbl" for="sbYear">السنة الدراسية</label>${yearSelect(sub?subYear(sub):"")}</div>
     <div class="f"><label class="lbl" for="sbT">نسبة السنتر</label><div class="bar"><select id="sbT"><option value="pct"${sh.type==="pct"?" selected":""}>نسبة ٪ من المحصّل</option><option value="fixed"${sh.type==="fixed"?" selected":""}>مبلغ على كل طالب دفع</option></select>
       <input id="sbV" type="number" inputmode="numeric" min="0" value="${sh.value||""}" placeholder="40" style="width:100px"></div></div>
     <div class="bar"><button class="btn">${sub?"حفظ":"إضافة"}</button>${subjectsOf(t).length?`<button type="button" class="btn ghost" onclick="subEdit=null;render()">إلغاء</button>`:""}${canDel?`<button type="button" class="x" onclick="delSubject('${t.id}','${sub.id}',this)">حذف المادة</button>`:""}</div>
     ${sub&&!canDel?'<div class="sub">عشان تحذف المادة، انقل أو احذف مجاميعها الأول.</div>':""}</form>`}
-function saveSubject(e,tid,sid){e.preventDefault();const t=findTeacher(tid);if(!t)return;const ss=subjectsOf(t),name=sbName.value.trim();if(!name)return;
+const YSEL=[["ثانوي",["s1","s2","s3"]],["إعدادي",["m1","m2","m3"]],["ابتدائي",["p1","p2","p3","p4","p5","p6"]]];
+function subYear(sub){if(!sub)return "";if(sub.year)return sub.year;const k=yearKey(sub.name||"");return /^[spm]\d$/.test(k)?k:""}
+function yearSelect(v){return `<select id="sbYear" required><option value=""${v?"":" selected"} disabled>اختار السنة</option>${YSEL.map(([n,ks])=>`<optgroup label="${n}">${ks.map(k=>`<option value="${k}"${v===k?" selected":""}>${esc(yName(k))}</option>`).join("")}</optgroup>`).join("")}<option value="-"${v==="-"?" selected":""}>مش لسنة معينة</option></select>`}
+function sbAuto(txt){const el=document.getElementById("sbYear");if(!el||el.dataset.touched)return;const k=yearKey(txt);if(/^[spm]\d$/.test(k))el.value=k}
+document.addEventListener("change",e=>{if(e.target&&e.target.id==="sbYear")e.target.dataset.touched="1"});
+function saveSubject(e,tid,sid){e.preventDefault();const t=findTeacher(tid);if(!t)return;const ss=subjectsOf(t),yr=(document.getElementById("sbYear")||{}).value||"",base=subName(sbName.value.trim());if(!base)return;
+  if(!yr){flash("اختار السنة الدراسية");return}
+  const name=(/^[spm]\d$/.test(yr)?base+" — "+yName(yr):base).slice(0,60);
   const share={type:sbT.value,value:Math.max(0,+sbV.value||0)};
-  if(sid){const x=ss.find(q=>q.id===sid);if(x){x.name=name;x.share=share}}else ss.push({id:uid(),name,share});
+  if(sid){const x=ss.find(q=>q.id===sid);if(x){x.name=name;x.share=share;x.year=yr}}else ss.push({id:uid(),name,share,year:yr});
   if(ss.length===1){t.subject=ss[0].name;t.share=ss[0].share}
   subEdit=null;teacherImg=null;save();render()}
 function delSubject(tid,sid,btn){twice("sd"+sid,()=>{const t=findTeacher(tid);if(!t)return;t.subjects=subjectsOf(t).filter(x=>x.id!==sid);subEdit=null;save();render()},btn)}
