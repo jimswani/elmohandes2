@@ -581,7 +581,7 @@ function accountsBox(t){
    Leave it as null and the app works on the device only (local mode). */
 const FIREBASE_CONFIG={apiKey:"AIzaSyB3TNutgwCeZZ0mHygE0NI8yCh9m7x6-oI",authDomain:"jimswani-centers.firebaseapp.com",projectId:"jimswani-centers",storageBucket:"jimswani-centers.firebasestorage.app",messagingSenderId:"809726548597",appId:"1:809726548597:web:986921d2087b145af3f63c"};
 const CLOUD=!!(FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey);
-const APP_VERSION="3.4";
+const APP_VERSION="3.5";
 const DEV={name:"م/ محمد جمال",phone:"01069982196",title:"مهندس برمجيات · برامج حسابات السناتر",handle:"jimswani",fb:"https://www.facebook.com/profile.php?id=61588021126316",tiktok:"https://www.tiktok.com/@jimswani"};
 function devWa(){return "https://wa.me/2"+DEV.phone+"?text="+encodeURIComponent("السلام عليكم يا بشمهندس، شفت برنامج "+BRAND.name+" وعايز برنامج زيه لسنتري")}
 let db=null, ref=null, saveTimer=null, saving=false, pending=false, offline=false, dirty=false;
@@ -1387,8 +1387,9 @@ function backupBox(){
   const lb=lastBackup(),open=!!(backupImg||backupMsg||restorePending);
   return `<details class="form backup"${open?" open":""}><summary><b>النسخة الاحتياطية</b><span class="sub">${lb?"آخر نسخة: "+esc(lb):"لسه ما اتعملتش"}</span></summary>
     ${CLOUD?"":`<div class="sub">البيانات على الجهاز ده بس، اعمل نسخة كل أسبوع.</div>`}
-    ${bkSkipped?`<div class="note">البيانات النهارده شكلها ناقص عن آخر نسخة، فالبرنامج ماحفظهاش كنسخة يومية. لو في مشكلة، رجّع آخر نسخة من تحت.</div>`:""}${CLOUD?`<div class="autobk"><div class="bar" style="justify-content:space-between"><div><b>النسخ التلقائية</b><div class="sub">كل يوم البرنامج بيحفظ لوحده البيانات زي ما كانت لحد آخر اليوم اللي قبله. النسخ دي مابتتعدّلش، وبيفضل آخر ٣٠ يوم والأقدم بيتمسح لوحده.</div></div>${autoList&&autoList!=="loading"&&autoList!=="error"?"":`<button class="btn ghost sm" onclick="loadAutoList()">${autoList==="loading"?"جاري…":"عرض"}</button>`}</div>
-      ${autoList==="error"?`<div class="note">ماقدرتش أجيب النسخ. اتأكد من النت ومن قواعد Firebase.</div>`:Array.isArray(autoList)?(autoList.length?`<div class="rtable">${autoList.map(x=>`<div class="rrow"><span class="m"><b>لحد آخر يوم ${esc(bkLabel(x.id))}</b><span class="sub">${arn(x.n)} مدرس · ${arn(x.st)} طالب</span></span><button class="btn ghost sm" onclick="useAuto('${x.id}')">رجّعها</button></div>`).join("")}</div>`:`<div class="sub">لسه مفيش نسخ. أول نسخة بتتعمل بكرة أول ما البرنامج يتفتح.</div>`):""}</div>`:""}
+    ${bkSkipped?`<div class="note">البيانات النهارده شكلها ناقص عن آخر نسخة، فالبرنامج ماحفظهاش كنسخة يومية. لو في مشكلة، رجّع آخر نسخة من تحت.</div>`:""}${bkErr?`<div class="note">${esc(bkErr)}</div>`:""}${CLOUD?`<div class="autobk"><div class="bar" style="justify-content:space-between"><div><b>النسخ التلقائية</b><div class="sub">كل يوم البرنامج بيحفظ لوحده البيانات زي ما كانت لحد آخر اليوم اللي قبله. النسخ دي مابتتعدّلش، وبيفضل آخر ١٠ أيام، وكل نسخة جديدة بتمسح أقدم واحدة.</div></div>${autoList&&autoList!=="loading"&&autoList!=="error"?"":`<button class="btn ghost sm" onclick="loadAutoList()">${autoList==="loading"?"جاري…":"عرض"}</button>`}</div>
+      ${autoList==="error"?`<div class="note">ماقدرتش أجيب النسخ. اتأكد من النت ومن قواعد Firebase.</div>`:Array.isArray(autoList)?(autoList.length?`<div class="rtable">${autoList.map(x=>`<div class="rrow"><span class="m"><b>${esc(bkTitle(x))}</b><span class="sub">${arn(x.n)} مدرس · ${arn(x.st)} طالب</span></span><button class="btn ghost sm" onclick="useAuto('${x.id}')">رجّعها</button></div>`).join("")}</div>`:`<div class="sub">لسه مفيش نسخ. أول نسخة بتتعمل بكرة أول ما البرنامج يتفتح.</div>`):""}</div>`:""}
+    ${preRow()}
     <div class="bar"><button class="btn" onclick="prepareBackup()">عمل صورة النسخة</button>
     <label class="btn ghost" for="restoreFile">استرجاع</label>
     <input type="file" id="restoreFile" accept="image/png,image/*,.json,application/json" hidden onchange="restoreBackup(this)">
@@ -1396,7 +1397,7 @@ function backupBox(){
     <div id="pasteBox" hidden><textarea id="pasteText" placeholder="الصق النص هنا" style="width:100%;height:90px;font:12px monospace;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;direction:ltr"></textarea>
       <button class="btn" onclick="restoreFromText()">استرجاع</button></div>
     ${backupMsg?`<div class="note">${esc(backupMsg)}</div>`:""}
-    ${restorePending?`<div class="note">النسخة دي${restoreWhen?" بتاريخ "+esc(restoreWhen):""} وفيها ${arn(restorePending.teachers.length)} مدرس. الاسترجاع هيمسح البيانات الحالية ويحط مكانها بيانات النسخة.</div>
+    ${restorePending?`<div class="note">النسخة دي${restoreWhen?" بتاريخ "+esc(restoreWhen):""} ${restoreNote()}</div>
       <div class="bar"><button class="btn delbtn" onclick="confirmRestore()">أيوه، استرجع</button><button class="btn ghost" onclick="restorePending=null;render()">إلغاء</button></div>`:""}
     ${backupImg?`<div class="bar"><button class="btn" onclick="deliverBackup()">حفظ / مشاركة</button><button class="btn ghost" onclick="closeBackupImg()">قفل</button></div>
       <img src="${backupImg.url}" alt="صورة النسخة الاحتياطية" style="width:100%;border-radius:12px;border:1px solid var(--line)">
@@ -1413,21 +1414,62 @@ function bkStats(x){let st=0,pays=0;(x.teachers||[]).forEach(t=>(t.groups||[]).f
 function bkLooksBroken(now,prev){if(!now.teachers||!now.students)return true;if(!prev)return false;
   if(prev.students>=10&&now.students<prev.students*0.5)return true;if(prev.teachers>=3&&now.teachers<prev.teachers*0.5)return true;if(prev.pays>=20&&now.pays<prev.pays*0.4)return true;return false}
 var bkTried=false;
+var bkErr="";
 async function autoBackup(){try{if(bkTried||!(CLOUD&&cuser&&coreLoaded&&monthsLoaded&&fsdb)||wiping)return;bkTried=true;
   const day=todayISO(),k="center-autoBk-"+cuser.uid;if(localStorage.getItem(k)===day)return;
-  const now=bkStats(S);let prev=null;try{const ls=await bkCol().orderBy("day","desc").limit(1).get();if(ls.docs.length){const d=ls.docs[0];if(d.id===day){localStorage.setItem(k,day);return}prev=d.data()}}catch(e){}
+  const now=bkStats(S);let prev=null;try{const ls=await bkCol().orderBy("day","desc").limit(12).get();for(const d of ls.docs){if(d.id===day){localStorage.setItem(k,day);return}if(!prev&&!/^pre-/.test(d.id))prev=d.data()}}catch(e){}
   if(bkLooksBroken(now,prev)){bkSkipped=true;render();return}
-  const FV=firebase.firestore&&firebase.firestore.FieldValue,j=backupJSON(),z=await gz(j),doc={day,at:new Date().toISOString(),ts:FV?FV.serverTimestamp():new Date(),teachers:now.teachers,students:now.students,pays:now.pays};if(z)doc.z=z;else doc.j=j;
-  if((doc.z||doc.j).length>900000)return;await bkCol().doc(day).set(doc);localStorage.setItem(k,day);bkCleanup(day)}catch(e){}}
-/* keep the last 30 days; Firebase rules only allow deleting copies older than 30 days */
-async function bkCleanup(today){try{const lim=new Date(today+"T00:00:00");lim.setDate(lim.getDate()-30);const cut=lim.toISOString().slice(0,10);
-  const ls=await bkCol().orderBy("day","asc").limit(20).get();for(const d of ls.docs){if(d.id<cut){try{await bkCol().doc(d.id).delete()}catch(e){}}else break}}catch(e){}}
+  const FV=firebase.firestore&&firebase.firestore.FieldValue,j=backupJSON(true),z=await gz(j),doc={day,at:new Date().toISOString(),ts:FV?FV.serverTimestamp():new Date(),teachers:now.teachers,students:now.students,pays:now.pays};if(z)doc.z=z;else doc.j=j;
+  if((doc.z||doc.j).length>900000){bkErr="حجم البيانات كبر عن الحد المسموح للنسخة التلقائية فمش بتتحفظ. كلّم الدعم الفني، وخد نسخة بالصورة في الوقت ده.";render();return}
+  try{await bkCol().doc(day).set(doc)}catch(e){bkErr="النسخة التلقائية النهارده ماتحفظتش. اتأكد من النت ومن قواعد Firebase، وخد نسخة بالصورة في الوقت ده.";render();return}
+  bkErr="";localStorage.setItem(k,day);bkCleanup(day)}catch(e){}}
+/* keep the last 10 daily copies: every new copy pushes out the oldest. Safety copies taken before a restore are kept 10 days.
+   Firebase rules must allow deleting copies older than 9 days (see the rules note); until then deleting simply fails and nothing is lost. */
+var BK_KEEP=10;
+async function bkCleanup(today){try{
+  const ls=await bkCol().orderBy("day","desc").limit(100).get();const reg=[],pre=[];
+  ls.docs.forEach(d=>{(/^pre-/.test(d.id)?pre:reg).push(d)});
+  if(!reg.length||reg[0].id!==today)return;
+  for(const d of reg.slice(BK_KEEP)){try{await bkCol().doc(d.id).delete()}catch(e){}}
+  const p=today.split("-").map(Number),cut=new Date(Date.UTC(p[0],p[1]-1,p[2]-BK_KEEP)).toISOString().slice(0,10);
+  for(const d of pre){const dy=(d.data()||{}).day||"";if(dy&&dy<cut){try{await bkCol().doc(d.id).delete()}catch(e){}}}
+}catch(e){}}
 var bkSkipped=false;
 var autoList=null;
 async function loadAutoList(){autoList="loading";render();try{const all=await bkCol().orderBy("day","desc").limit(60).get();autoList=all.docs.map(d=>{const x=d.data()||{};return{id:d.id,at:x.at,n:x.teachers||0,st:x.students||0}})}catch(e){autoList="error"}render()}
 function bkLabel(id){try{const d=new Date(id+"T12:00:00");d.setDate(d.getDate()-1);return d.toLocaleDateString("ar-EG",{weekday:"long",day:"numeric",month:"long"})}catch(e){return id}}
+function bkTitle(x){if(/^pre-/.test(x.id)){let w="";try{w=new Date(x.at).toLocaleString("ar-EG",{day:"numeric",month:"long",hour:"numeric",minute:"2-digit"})}catch(e){}return "نسخة أمان قبل استرجاع"+(w?" · "+w:"")}return "لحد آخر يوم "+bkLabel(x.id)}
 async function useAuto(id){try{const sn=await bkCol().doc(id).get();const d=sn.data()||{};const j=d.z?await gunz(d.z):d.j;offerRestore(JSON.parse(j))}catch(e){backupMsg="ماقدرتش أفتح النسخة دي.";render()}}
-function backupJSON(){return JSON.stringify({app:"center",savedAt:new Date().toISOString(),data:S})}
+function backupJSON(withReqs){const o={app:"center",savedAt:new Date().toISOString(),data:S};
+  if(withReqs){try{if(reqLoaded&&Array.isArray(REQS)&&REQS.length)o.reqs=REQS.map(r=>{const q={id:r.id,t:r.t||0};["name","mobile","phone","year","other","code","status","tid","gid","gname"].forEach(f=>{if(r[f]!==undefined&&r[f]!==null)q[f]=r[f]});return q})}catch(e){}}
+  return JSON.stringify(o)}
+/* safety copy of the CURRENT data, taken automatically right before any restore.
+   returns "none" (nothing to protect), "cloud", "local" or "fail" (could not save it anywhere -> restore is refused) */
+function preKey(){return "center-preRestore"+(cuser?"-"+cuser.uid:"")}
+function preCopy(){try{return localStorage.getItem(preKey())?{at:+localStorage.getItem(preKey()+"-at")||0}:null}catch(e){return null}}
+function usePre(){try{offerRestore(JSON.parse(localStorage.getItem(preKey())))}catch(e){backupMsg="ماقدرتش أفتح نسخة الأمان.";render()}}
+function preRow(){const p=preCopy();if(!p)return "";let w="";try{if(p.at)w=new Date(p.at).toLocaleString("ar-EG",{day:"numeric",month:"long",hour:"numeric",minute:"2-digit"})}catch(e){}
+  return `<div class="bar" style="justify-content:space-between"><span class="sub">نسخة أمان على الموبايل ده من قبل آخر استرجاع${w?" ("+esc(w)+")":""}</span><button class="btn ghost sm" onclick="usePre()">رجّعها</button></div>`}
+async function safetyCopy(){
+  const st=bkStats(S);if(!st.teachers&&!st.students&&!st.pays)return "none";
+  const j=backupJSON(true);let local=false,cloud=false;
+  try{localStorage.setItem(preKey(),j);localStorage.setItem(preKey()+"-at",String(Date.now()));local=true}catch(e){}
+  if(CLOUD&&cuser&&fsdb){try{
+    const t=new Date(),day=todayISO(),id="pre-"+day+"-"+[t.getHours(),t.getMinutes(),t.getSeconds()].map(n=>String(n).padStart(2,"0")).join("");
+    const FV=firebase.firestore&&firebase.firestore.FieldValue,z=await gz(j),doc={day,at:t.toISOString(),ts:FV?FV.serverTimestamp():t,teachers:st.teachers,students:st.students,pays:st.pays};if(z)doc.z=z;else doc.j=j;
+    if((doc.z||doc.j).length<=900000){await Promise.race([bkCol().doc(id).set(doc),new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),8000))]);cloud=true}
+  }catch(e){}}
+  return cloud?"cloud":local?"local":"fail"}
+/* bring back sign-up requests that are in the backup but missing now (best effort, never blocks the restore) */
+async function restoreMissingReqs(L){let n=0;const have=new Set((REQS||[]).map(r=>r.id)),FV=firebase.firestore&&firebase.firestore.FieldValue;
+  for(const r of L){if(!r||!r.id||have.has(r.id))continue;const b={};["name","mobile","phone","year","other","code","status","tid","gid","gname"].forEach(f=>{if(r[f]!==undefined)b[f]=r[f]});
+    try{await reqCol().doc(r.id).set(Object.assign({},b,{at:r.t?new Date(r.t):(FV?FV.serverTimestamp():new Date())}));n++}
+    catch(e){try{await reqCol().doc(r.id).set(Object.assign({},b,{at:FV?FV.serverTimestamp():new Date()}));n++}catch(e2){}}}
+  return n}
+function restoreNote(){const a=bkStats(restorePending),b=bkStats(S);
+  let t="وفيها "+arn(a.teachers)+" مدرس و"+arn(a.students)+" طالب و"+arn(a.pays)+" دفعة. البيانات الحالية فيها "+arn(b.teachers)+" مدرس و"+arn(b.students)+" طالب و"+arn(b.pays)+" دفعة. الاسترجاع هيمسح البيانات الحالية ويحط مكانها بيانات النسخة، وقبلها البرنامج بيحفظ نسخة أمان من الحالية.";
+  if((b.students>=5&&a.students<b.students*0.7)||(b.pays>=10&&a.pays<b.pays*0.7))t+=" ⚠ النسخة دي أصغر من البيانات الحالية، يعني طلبة ودفع هيتشالوا. اتأكد إنها النسخة الصح.";
+  return esc(t)}
 function markBackup(){const d=new Date().toLocaleString("ar-EG",{day:"numeric",month:"long",hour:"numeric",minute:"2-digit"});try{localStorage.setItem("center-lastBackup",d);localStorage.setItem("center-lastBackupAt",String(Date.now()))}catch(e){}}
 function backupDays(){try{const v=+localStorage.getItem("center-lastBackupAt");return v?Math.floor((Date.now()-v)/864e5):null}catch(e){return null}}
 
@@ -1769,7 +1811,7 @@ var restorePending=null,restoreWhen="",sgOpen=new Set();
 function offerRestore(j){
   const d=j.data||j;
   if(!d||!Array.isArray(d.teachers))throw new Error("shape");
-  restorePending={teachers:d.teachers,locks:d.locks||{},payouts:d.payouts||{},settings:d.settings||{},attendance:d.attendance||{},payments:d.payments||{},expenses:d.expenses||{}};
+  restoreReqs=Array.isArray(j.reqs)?j.reqs:null;restorePending={teachers:d.teachers,locks:d.locks||{},payouts:d.payouts||{},settings:d.settings||{},attendance:d.attendance||{},payments:d.payments||{},expenses:d.expenses||{}};
   restoreWhen=j.savedAt?new Date(j.savedAt).toLocaleString("ar-EG",{day:"numeric",month:"long",hour:"numeric",minute:"2-digit"}):"";
   backupMsg="";if(nav.view!=="settings")nav={view:"settings"};render();
   const d2=document.querySelector("details.backup");if(d2)d2.scrollIntoView({block:"center"});
@@ -1782,7 +1824,15 @@ async function restoreBackup(inp){
     else{offerRestore(JSON.parse(await f.text()))}
   }catch(e){backupMsg=/image\//.test(f.type)?"الصورة دي مش نسخة سليمة. لازم تكون صورة النسخة الأصلية من غير قص أو ضغط (لو جت من الواتساب لازم تكون اتبعتت كمستند).":"الملف ده مش نسخة احتياطية من البرنامج.";render()}
 }
-function confirmRestore(){if(!restorePending)return;allowEmpty=true;const dk=S.settings.devk,dc=S.settings.devc;S=restorePending;S.settings=S.settings||{};if(dk){S.settings.devk=dk;if(dc)S.settings.devc=dc;else delete S.settings.devc}else{delete S.settings.devk;delete S.settings.devc}restorePending=null;ensureS();save();backupMsg="اترجعت البيانات من النسخة.";render()}
+var restoreReqs=null,restoreBusy=false;
+async function confirmRestore(){if(!restorePending||restoreBusy)return;restoreBusy=true;
+  backupMsg="جاري حفظ نسخة أمان من البيانات الحالية…";render();
+  let sc="none";try{sc=await safetyCopy()}catch(e){sc="fail"}
+  if(sc==="fail"){restoreBusy=false;backupMsg="الاسترجاع اتوقف: ماقدرتش أحفظ نسخة أمان من البيانات الحالية، وماينفعش نمسحها من غيرها. اعمل «عمل صورة النسخة» الأول وبعدين جرّب تاني.";render();return}
+  if(!restorePending){restoreBusy=false;return}
+  const rq=restoreReqs;allowEmpty=true;const dk=S.settings.devk,dc=S.settings.devc;S=restorePending;S.settings=S.settings||{};if(dk){S.settings.devk=dk;if(dc)S.settings.devc=dc;else delete S.settings.devc}else{delete S.settings.devk;delete S.settings.devc}restorePending=null;restoreReqs=null;restoreBusy=false;ensureS();save();
+  backupMsg="اترجعت البيانات من النسخة."+(sc==="cloud"?" واتحفظت نسخة أمان من اللي كان قبلها في قايمة النسخ التلقائية.":sc==="local"?" واتحفظت نسخة أمان من اللي كان قبلها على الموبايل ده.":"");render();
+  if(rq&&rq.length&&CLOUD&&cuser&&fsdb){restoreMissingReqs(rq).then(n=>{if(n){backupMsg+=" ورجّعت "+arn(n)+" طلب تسجيل.";render()}}).catch(()=>{})}}
 
 
 /* ---------- student search & profile ---------- */
