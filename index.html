@@ -501,6 +501,57 @@ body{background:radial-gradient(900px 380px at 50% -200px,rgba(216,56,63,.10),tr
 .tog .paid[aria-pressed="false"]:not(.partb){border-color:var(--bad);color:var(--bad)}
 .stu{border-radius:14px}
 
+/* ===== 3.9 تصميم متجاوب: موبايل · تابلت · لاب ===== */
+.bnlogo{display:none;mix-blend-mode:lighten}:root[data-theme="light"] .bnlogo{mix-blend-mode:normal;background:#0E0F12;border-radius:16px;padding:8px 14px;box-sizing:border-box}
+@media (min-width:700px){
+  #app.wrap{max-width:900px}
+  .view .list:not(.glist):not(.tlist){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}
+  .view .list>:not(.row):not(.stu):not(.srow){grid-column:1/-1}
+  .qgrid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .view[data-v=unpaid] .upgrp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}
+  .view[data-v=unpaid] .upgrp>.uphead{grid-column:1/-1}
+  .view[data-v=unpaid] .ugrp{margin-bottom:0}
+  .view .ugrp .list,.view .subj .list{display:flex!important;flex-direction:column;align-items:stretch!important}
+  .view[data-v=settings]{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 14px;align-items:start}
+  .view[data-v=settings]>.themerow,.view[data-v=settings]>.ptitle,.view[data-v=settings]>.sect,.view[data-v=settings]>.note,.view[data-v=settings]>.logoutbtn,.view[data-v=settings]>details.backup,.view[data-v=settings]>.staffcard{grid-column:1/-1}
+  .view[data-v=report] .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.view[data-v=report] .kpi.big{grid-column:auto}
+  /* bottom sheets become centered windows */
+  .bsheet{top:50%;bottom:auto;left:50%;right:auto;margin:0;transform:translate(-50%,-50%);width:min(560px,calc(100vw - 48px));max-height:88vh;overflow:auto;border-bottom:1px solid var(--line);border-radius:22px;padding-bottom:18px;animation:sheetpop .2s ease-out}
+  .bsheet .grab{display:none}
+  .fab{left:max(16px,calc((100vw - 900px)/2 + 16px))}
+}
+@keyframes sheetpop{from{opacity:0;transform:translate(-50%,-47%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%)}}
+@media (min-width:1024px){
+  body.hasnav{padding-right:256px;padding-bottom:40px}
+  #app.wrap{max-width:1180px}
+  /* the bottom bar becomes a sidebar on the right */
+  .bnav{inset:0 0 0 auto;width:240px;flex-direction:column;justify-content:flex-start;gap:4px;padding:calc(20px + env(safe-area-inset-top,0px)) 14px 20px;border-top:0;border-left:1px solid var(--line)}
+  .bnlogo{display:block;width:150px;max-height:84px;object-fit:contain;margin:0 auto 18px}
+  .bnav button{flex:none;max-width:none;flex-direction:row;justify-content:flex-start;gap:12px;padding:12px 14px;font-size:.95rem;border-radius:14px;text-align:right}
+  .bnav button svg{width:22px;height:22px;flex:none}
+  .bnav button:hover{background:color-mix(in srgb,var(--accent) 8%,transparent);color:var(--ink)}
+  .bnav button.on{box-shadow:inset -3px 0 0 var(--accent)}
+  .bnav button.on::before{display:none}
+  .bnav .bdg{position:static;margin:0;margin-inline-start:auto}
+  .view .list:not(.glist):not(.tlist){grid-template-columns:repeat(3,minmax(0,1fr))}
+  .view .glist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}
+  .view .glist>:not(.stu){grid-column:1/-1}
+  /* home: money summary side by side */
+  .view[data-v=home]{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px;align-items:stretch}
+  .view[data-v=home]>*{grid-column:1/-1}
+  .view[data-v=home]>.herokpi{grid-column:1}.view[data-v=home]>.kpis{grid-column:2;grid-template-columns:1fr;align-content:stretch}
+  body.hasnav .hero .hlogo{visibility:hidden;height:8px}
+  /* teacher: subjects side by side */
+  .view[data-v=teacher]{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}
+  .view[data-v=teacher]>*{grid-column:1/-1}.view[data-v=teacher]>section.subj{grid-column:auto}
+  .view[data-v=teacher] .subj .list{grid-template-columns:1fr}
+  .top{margin-inline:0;border-radius:0 0 16px 16px}
+  .bsheet{left:calc(50% - 128px)}
+  @keyframes sheetpop{from{opacity:0;transform:translate(-50%,-47%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%)}}
+  .undo,.flash{left:calc(50% - 128px)}
+  .undo{bottom:28px}.flash{bottom:84px}
+  .fab{left:28px;bottom:28px}
+}
 </style>
 
 <div class="wrap" id="app"><div class="splash"><div class="spbar"><i></i></div></div></div>
@@ -596,7 +647,7 @@ function accountsBox(t){
    Leave it as null and the app works on the device only (local mode). */
 const FIREBASE_CONFIG={apiKey:"AIzaSyB3TNutgwCeZZ0mHygE0NI8yCh9m7x6-oI",authDomain:"jimswani-centers.firebaseapp.com",projectId:"jimswani-centers",storageBucket:"jimswani-centers.firebasestorage.app",messagingSenderId:"809726548597",appId:"1:809726548597:web:986921d2087b145af3f63c"};
 const CLOUD=!!(FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey);
-const APP_VERSION="3.8";
+const APP_VERSION="3.9";
 const DEV={name:"م/ محمد جمال",phone:"01069982196",title:"مهندس برمجيات · برامج حسابات السناتر",handle:"jimswani",fb:"https://www.facebook.com/profile.php?id=61588021126316",tiktok:"https://www.tiktok.com/@jimswani"};
 function devWa(){return "https://wa.me/2"+DEV.phone+"?text="+encodeURIComponent("السلام عليكم يا بشمهندس، شفت برنامج "+BRAND.name+" وعايز برنامج زيه لسنتري")}
 let db=null, ref=null, saveTimer=null, saving=false, pending=false, offline=false, dirty=false;
@@ -1070,9 +1121,9 @@ function ic(k){return `<svg viewBox="0 0 24 24" width="22" height="22" fill="non
 function navSection(v){return v==="home"?"home":["teachers","teacher","group","student","addTeacher","editTeacher","addGroup","editGroup","students"].includes(v)?"teachers":v==="unpaid"?"unpaid":v==="report"?"report":["settings","templates"].includes(v)?"settings":""}
 function navBar(){const cur=navSection(nav.view),n=S.teachers.length?unpaidList(curMonth()).length:0;
   const it=(k,label,js,badge)=>`<button class="${cur===k?"on":""}" onclick="${js}" aria-label="${label}">${ic(k)}<span>${label}</span>${badge?`<i class="bdg">${badge>99?"+99":arn(badge)}</i>`:""}</button>`;
-  return `<nav class="bnav">${it("home","الرئيسية","go({view:'home'})")}${it("teachers","المدرسين","go({view:'teachers'})")}${it("unpaid","مادفعش","payMonth=curMonth();go({view:'unpaid'})",n)}${isOwner()?it("report","التقارير","go({view:'report'})")+it("settings","الإعدادات","go({view:'settings'})"):""}</nav>`}
+  return `<nav class="bnav"><img class="bnlogo" src="${LOGO}" alt="">${it("home","الرئيسية","go({view:'home'})")}${it("teachers","المدرسين","go({view:'teachers'})")}${it("unpaid","مادفعش","payMonth=curMonth();go({view:'unpaid'})",n)}${isOwner()?it("report","التقارير","go({view:'report'})")+it("settings","الإعدادات","go({view:'settings'})"):""}</nav>`}
 function render(){
-  const el=document.getElementById("app");if(JOIN){el.innerHTML=viewJoin();return}try{document.body.classList.toggle("staffmode",!isOwner())}catch(e){}
+  const el=document.getElementById("app");try{document.body.classList.remove("hasnav")}catch(e){}if(JOIN){el.innerHTML=viewJoin();return}try{document.body.classList.toggle("staffmode",!isOwner())}catch(e){}
   let v=nav.view;
   if(CLOUD&&cuser&&authState==="ready"&&amRevoked()){kickSelf();el.innerHTML=viewRevoked();return}
   if(revokedLocal()){el.innerHTML=viewRevoked()+credit();return}
@@ -1080,8 +1131,8 @@ function render(){
   if(needPin()){el.innerHTML=viewLock()+credit();setTimeout(()=>{const i=document.getElementById("pinIn");if(i&&!i.disabled)i.focus()},50);return}
   if(!isOwner()&&["settings","templates","report","editTeacher","addTeacher"].includes(v)){nav={view:"home"};v="home"}
   const vkey=v+"|"+(nav.tid||"")+(nav.gid||"")+(nav.key||""),anim=vkey!==lastViewKey;lastViewKey=vkey;
-  el.innerHTML = `<div class="view${anim?" enter":""}">`+(v==="teachers"?viewTeachers(): v==="students"?viewStudents(): v==="templates"?viewTemplates(): v==="report"?viewReport(): v==="teacher"?viewTeacher(): v==="group"?viewGroup(): v==="addTeacher"?viewAddTeacher(): v==="addGroup"?viewAddGroup(): v==="student"?viewStudent(): v==="editTeacher"?viewEditTeacher(): v==="editGroup"?viewEditGroup(): v==="unpaid"?viewUnpaid(): v==="settings"?viewSettings(): viewHome())+`</div>`;
-  el.insertAdjacentHTML("beforeend",flashBar()+undoBar()+receiptModal()+fab()+navBar());
+  el.innerHTML = `<div class="view${anim?" enter":""}" data-v="${v}">`+(v==="teachers"?viewTeachers(): v==="students"?viewStudents(): v==="templates"?viewTemplates(): v==="report"?viewReport(): v==="teacher"?viewTeacher(): v==="group"?viewGroup(): v==="addTeacher"?viewAddTeacher(): v==="addGroup"?viewAddGroup(): v==="student"?viewStudent(): v==="editTeacher"?viewEditTeacher(): v==="editGroup"?viewEditGroup(): v==="unpaid"?viewUnpaid(): v==="settings"?viewSettings(): viewHome())+`</div>`;
+  el.insertAdjacentHTML("beforeend",flashBar()+undoBar()+receiptModal()+fab()+navBar());try{document.body.classList.add("hasnav")}catch(e){}
   if(offline) el.insertAdjacentHTML("afterbegin",'<div class="note">'+(CLOUD?'مفيش اتصال دلوقتي — التعديلات محفوظة على الجهاز وهتترفع أول ما النت يرجع.':'مش قادر أحفظ دلوقتي.')+'</div>');
   el.insertAdjacentHTML("beforeend",credit());
   if(anim&&!REDUCED)el.querySelectorAll("[data-count]").forEach(countUp);
