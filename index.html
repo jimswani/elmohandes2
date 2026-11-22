@@ -502,6 +502,14 @@ body{background:radial-gradient(900px 380px at 50% -200px,rgba(216,56,63,.10),tr
 .stu{border-radius:14px}
 
 /* ===== 3.9 تصميم متجاوب: موبايل · تابلت · لاب ===== */
+.slogbar{display:flex;align-items:center;gap:12px;width:100%;text-align:right;padding:14px 16px;border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));background:color-mix(in srgb,var(--accent) 9%,var(--card));color:var(--ink);font:inherit;cursor:pointer;margin-bottom:14px}
+.slogbar .sl-ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent);flex:none}.slogbar .sl-ic svg{width:22px;height:22px}
+.slogbar .sl-t{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}.slogbar .sl-n{min-width:28px;height:28px;padding:0 8px;border-radius:99px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:800;font-size:.85rem}
+.sl-day{margin:16px 4px 8px;font-weight:700}.sl-list{display:flex;flex-direction:column;gap:8px}
+.slrow{display:flex;align-items:center;gap:10px;padding:12px 14px}.slrow .sl-main{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}.slrow .sl-meta{font-size:.82rem;color:var(--muted)}
+.slrow .sl-act{display:flex;gap:6px;align-items:center;flex:none}.slrow.dn{opacity:.72}.slrow.rm{border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}
+.warnc{color:var(--warn,#B7791F)}.sl-hint{margin:18px 4px;line-height:1.7}
+@media (min-width:1024px){.view[data-v=slog] .sl-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}
 .bnlogo{display:none;mix-blend-mode:lighten}:root[data-theme="light"] .bnlogo{mix-blend-mode:normal;background:#0E0F12;border-radius:16px;padding:8px 14px;box-sizing:border-box}
 @media (min-width:700px){
   #app.wrap{max-width:900px}
@@ -647,7 +655,7 @@ function accountsBox(t){
    Leave it as null and the app works on the device only (local mode). */
 const FIREBASE_CONFIG={apiKey:"AIzaSyB3TNutgwCeZZ0mHygE0NI8yCh9m7x6-oI",authDomain:"jimswani-centers.firebaseapp.com",projectId:"jimswani-centers",storageBucket:"jimswani-centers.firebasestorage.app",messagingSenderId:"809726548597",appId:"1:809726548597:web:986921d2087b145af3f63c"};
 const CLOUD=!!(FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey);
-const APP_VERSION="3.9";
+const APP_VERSION="4.0";
 const DEV={name:"م/ محمد جمال",phone:"01069982196",title:"مهندس برمجيات · برامج حسابات السناتر",handle:"jimswani",fb:"https://www.facebook.com/profile.php?id=61588021126316",tiktok:"https://www.tiktok.com/@jimswani"};
 function devWa(){return "https://wa.me/2"+DEV.phone+"?text="+encodeURIComponent("السلام عليكم يا بشمهندس، شفت برنامج "+BRAND.name+" وعايز برنامج زيه لسنتري")}
 let db=null, ref=null, saveTimer=null, saving=false, pending=false, offline=false, dirty=false;
@@ -659,7 +667,50 @@ function save(){if(wiping)return;
   try{localStorage.setItem(lsKey(),JSON.stringify(S))}catch(e){}
   if(!(CLOUD&&cuser))return;
   dirty=true;clearTimeout(saveTimer);saveTimer=setTimeout(flush,600);joinSyncSoon();
+  setTimeout(()=>{try{slogDiff()}catch(e){}},0);
 }
+/* ===== سجل دفع السكرتارية: كل دفعة يسجلها السكرتير بتظهر لصاحب السنتر عشان يبعت الإيصال ===== */
+function slogActor(){if(isOwner())return null;const d=((S.settings||{}).devices||{})[deviceId()]||{},v=d.sid&&staffMap()[d.sid];return {sid:d.sid||"",name:(v&&v.name)||d.name||"السكرتير"}}
+function slogCol(){return fsdb&&cuser?fsdb.collection("centers").doc(cuser.uid).collection("slog"):null}
+function slogId(gid,sid,m){return (gid+"_"+sid+"_"+m).replace(/[^\w-]/g,"").slice(0,140)}
+function slogDiff(){const a=slogActor();const now=JSON.stringify(S.payments||{});if(!a||slogBase===null){slogBase=now;return}if(now===slogBase)return;
+  const A=JSON.parse(slogBase),B=S.payments||{},col=slogCol();slogBase=now;if(!col)return;
+  new Set([...Object.keys(A),...Object.keys(B)]).forEach(k=>{const ra=A[k]||{},rb=B[k]||{},[gid,m]=k.split("|");if(!m)return;
+    new Set([...Object.keys(ra),...Object.keys(rb)]).forEach(sid=>{if(JSON.stringify(ra[sid])===JSON.stringify(rb[sid]))return;
+      const f=findGroup(gid),x=f&&(f.g.students||[]).find(y=>y.id===sid),id=slogId(gid,sid,m),old=SLOG.find(r=>r.id===id);
+      if(!f||!x)return;
+      if(hasPayV(rb[sid])){const rec={gid,sid,m,name:String(x.name||"").slice(0,60),gname:String(f.g.name||"").slice(0,60),tname:String(f.t.name||"").slice(0,60),amt:payAmt(f.g,x,m),full:isPaidV(rb[sid]),by:a.sid,byName:String(a.name).slice(0,40),at:new Date().toISOString(),done:false,removed:false};
+        col.doc(id).set(rec).catch(()=>{});const i=SLOG.findIndex(r=>r.id===id);if(i>=0)SLOG[i]=Object.assign({id},rec);else SLOG.unshift(Object.assign({id},rec))}
+      else if(old){if(old.done){const rec={removed:true,done:false,amt:0,full:false,by:a.sid,byName:String(a.name).slice(0,40),at:new Date().toISOString()};col.doc(id).set(rec,{merge:true}).catch(()=>{});Object.assign(old,rec)}
+        else{col.doc(id).delete().catch(()=>{});SLOG=SLOG.filter(r=>r.id!==id)}}})})}
+function slogNew(){return SLOG.filter(r=>!r.done)}
+function slogDone(id,on){const col=slogCol(),r=SLOG.find(x=>x.id===id);if(!col||!r)return;
+  if(r.removed&&on){col.doc(id).delete().catch(()=>{});SLOG=SLOG.filter(x=>x.id!==id)}else{r.done=!!on;col.doc(id).set({done:!!on,doneAt:new Date().toISOString()},{merge:true}).catch(()=>flash("ماقدرتش أحفظ. اتأكد من النت."))}
+  slogSig="";render()}
+function slogAllDone(btn){twice("slogall",()=>{const col=slogCol();if(!col)return;const L=slogNew();L.forEach(r=>{if(r.removed){col.doc(r.id).delete().catch(()=>{})}else{r.done=true;col.doc(r.id).set({done:true,doneAt:new Date().toISOString()},{merge:true}).catch(()=>{})}});SLOG=SLOG.filter(r=>!(r.removed&&L.includes(r)));flash("اتعلّموا كلهم ✓");render()},btn)}
+var slogCleaned=false;
+function slogCleanup(){if(slogCleaned||!slogLoaded)return;slogCleaned=true;const col=slogCol();if(!col)return;const cut=Date.now()-45*864e5;SLOG.filter(r=>r.done&&Date.parse(r.at||"")<cut).slice(0,40).forEach(r=>col.doc(r.id).delete().catch(()=>{}))}
+function slogSendReceipt(id){const r=SLOG.find(x=>x.id===id);if(!r)return;const f=findGroup(r.gid),x=f&&(f.g.students||[]).find(y=>y.id===r.sid);if(!f||!x){flash("الطالب ده مبقاش في المجموعة.");return}if(!hasPay(f.g,x,r.m)){flash("الدفعة دي اتشالت.");return}openReceipt(r.gid,r.sid,r.m)}
+function slogMarkFromReceipt(){const c=receiptImg&&!receiptImg.kind&&receiptImg.ctx;if(!c||!isOwner())return;const id=slogId(c.gid,c.sid,c.m),r=SLOG.find(x=>x.id===id);if(r&&!r.done)slogDone(id,true)}
+function slogAgo(iso){const t=Date.parse(iso||"");if(!t)return "";const d=new Date(t),now=new Date(),mins=Math.round((now-d)/6e4),tm=d.toLocaleTimeString("ar-EG",{hour:"numeric",minute:"2-digit"});
+  if(mins<1)return "دلوقتي";if(mins<60)return "من "+arn(mins)+" دقيقة";if(d.toDateString()===now.toDateString())return "النهارده "+tm;const y=new Date(now-864e5);if(d.toDateString()===y.toDateString())return "امبارح "+tm;return d.toLocaleDateString("ar-EG",{weekday:"long",day:"numeric",month:"long"})+" "+tm}
+function slogBar(){if(!isOwner())return "";const L=slogNew();if(!L.length)return "";const by=[...new Set(L.map(r=>r.byName))].slice(0,2).join(" و");
+  return `<button class="slogbar card" onclick="slogTab='new';go({view:'slog'})"><span class="sl-ic">${ic("receipt")}</span><span class="sl-t"><b>${by} سجّل ${arn(L.length)} ${L.length===1?"دفعة":L.length<=10?"دفعات":"دفعة"}</b><span class="sub">ابعت الإيصالات من رقمك</span></span><span class="sl-n">${arn(L.length)}</span><span class="go">‹</span></button>`}
+function viewSlog(){if(!isOwner()){nav={view:"home"};return viewHome()}
+  const L=slogTab==="new"?slogNew():SLOG.filter(r=>r.done),nN=slogNew().length;
+  const days={};L.forEach(r=>{const d=new Date(Date.parse(r.at||"")||0),k=d.toDateString();(days[k]=days[k]||{d,L:[]}).L.push(r)});
+  const dayName=d=>{const now=new Date(),y=new Date(now-864e5);return d.toDateString()===now.toDateString()?"النهارده":d.toDateString()===y.toDateString()?"امبارح":d.toLocaleDateString("ar-EG",{weekday:"long",day:"numeric",month:"long"})};
+  const row=r=>{const f=findGroup(r.gid),x=f&&(f.g.students||[]).find(y=>y.id===r.sid),fee=f&&x?feeOf(f.g,x):0;
+    return `<div class="slrow card${r.removed?" rm":""}${r.done?" dn":""}"><div class="sl-main"><b>${esc(r.name)}</b>
+      <span class="sub">${esc(r.tname)} · ${esc(r.gname)}${r.m!==curMonth()?" · "+esc(monthName(r.m)):""}</span>
+      <span class="sl-meta">${r.removed?`<span class="badc">شال الدفع</span>`:`<span class="${r.full?"okc":"warnc"}">${r.full?"دفع":"دفع جزء"} ${arn(r.amt||0)} ج${!r.full&&fee?" من "+arn(fee):""}</span>`} · ${esc(r.byName||"السكرتير")} · ${slogAgo(r.at)}</span></div>
+      <div class="sl-act">${r.done?`<button class="btn ghost sm" onclick="slogDone('${r.id}',false)">رجّعها</button>`:r.removed?`<button class="btn ghost sm" onclick="slogDone('${r.id}',true)">تمام</button>`:`<button class="btn wa sm" onclick="slogSendReceipt('${r.id}')">${ic("receipt")} الإيصال</button><button class="iconbtn" onclick="slogDone('${r.id}',true)" aria-label="اتبعت">✓</button>`}</div></div>`};
+  return `<div class="ptitle"><button class="iconbtn" onclick="go({view:'home'})" aria-label="رجوع">›</button><h2>دفع السكرتارية</h2>${slogTab==="new"&&nN>1?`<button class="btn ghost sm" onclick="slogAllDone(this)">علّم الكل اتبعت</button>`:"<span></span>"}</div>
+  <div class="tabs" role="tablist"><button role="tab" aria-selected="${slogTab==="new"}" onclick="slogTab='new';render()">لسه${nN?` <span class="tbadge num">${arn(nN)}</span>`:""}</button><button role="tab" aria-selected="${slogTab==="done"}" onclick="slogTab='done';render()">اتبعت</button></div>
+  ${slogErr?`<div class="note">السجل مش شغال. انشر ملف الـ Rules الجديد في Firebase وبعدين افتح البرنامج تاني.</div>`:""}
+  ${!slogLoaded&&!slogErr?`<div class="empty">جاري التحميل…</div>`:!L.length?`<div class="empty">${slogTab==="new"?"مفيش دفع جديد من السكرتارية ✓":"لسه مفيش حاجة هنا."}</div>`
+  :Object.values(days).map(g=>`<div class="sl-day sub">${dayName(g.d)}</div><div class="sl-list">${g.L.map(row).join("")}</div>`).join("")}
+  <div class="sub sl-hint">أي دفعة يسجلها السكرتير بتظهر هنا. دوس «الإيصال» وابعته لولي الأمر من رقمك، وهي هتتعلّم لوحدها إنها اتبعتت.</div>`}
 function saveTimerActive(){return saveTimer!==null}
 function splitState(){
   const docs={core:JSON.stringify({teachers:S.teachers||[],locks:S.locks||{},payouts:S.payouts||{},settings:S.settings||{}})},months={};
@@ -710,14 +761,15 @@ var monthsLoaded=false,coreLoaded=false,wiping=false,allowEmpty=false,recoverOff
 function goodKey(){return "center-good"+(cuser?"-"+cuser.uid:"")}
 function keepGood(x){try{if(x&&Array.isArray(x.teachers)&&x.teachers.length)localStorage.setItem(goodKey(),JSON.stringify({at:Date.now(),d:x}))}catch(e){}}
 function getGood(){try{const g=JSON.parse(localStorage.getItem(goodKey())||"null");return g&&g.d&&g.d.teachers&&g.d.teachers.length?g:null}catch(e){return null}}
-function subscribe(){coreLoaded=false;monthsLoaded=false;bkTried=false;REQS=[];reqLoaded=false;
+function subscribe(){coreLoaded=false;monthsLoaded=false;bkTried=false;REQS=[];reqLoaded=false;SLOG=[];slogLoaded=false;slogErr="";slogBase=null;
   const base=fsdb.collection("centers").doc(cuser.uid);
+  try{unsubs.push(base.collection("slog").orderBy("at","desc").limit(400).onSnapshot(sn=>{SLOG=sn.docs.map(d=>Object.assign({id:d.id},d.data()||{}));slogLoaded=true;slogErr="";const sig=JSON.stringify(SLOG.map(r=>[r.id,r.done,r.amt,r.removed]));if(sig!==slogSig){slogSig=sig;if(isOwner()&&(nav.view==="home"||nav.view==="slog"))render()}if(isOwner())slogCleanup()},e=>{slogErr=(e&&e.code)||"err";if(isOwner()&&nav.view==="slog")render()}))}catch(e){}
   try{unsubs.push(base.collection("requests").onSnapshot(sn=>{REQS=sn.docs.map(d=>{const x=d.data()||{};let t=0;try{t=x.at&&x.at.toMillis?x.at.toMillis():Date.parse(x.at)||0}catch(e){}return Object.assign({id:d.id,t},x)});const sig=JSON.stringify(REQS.map(r=>[r.id,r.status]));const first=!reqLoaded;reqLoaded=true;if(first||sig!==reqSig){reqSig=sig;if(nav.view==="students"||nav.view==="teachers"||first)render()}},()=>{reqLoaded=true}))}catch(e){}
   let core=null,months={},exps={};
   const apply=()=>{if(dirty||saving)return;if(core===null){return}
     const pay={};for(const m in months)Object.assign(pay,months[m]);
     S={teachers:(core&&core.teachers)||S.teachers||[],locks:(core&&core.locks)||S.locks||{},payouts:(core&&core.payouts)||S.payouts||{},settings:(core&&core.settings)||S.settings||{},attendance:{},payments:core||Object.keys(months).length?pay:(S.payments||{}),expenses:core||Object.keys(months).length?exps:(S.expenses||{})};
-    ensureS();lastWritten=splitState();resetUndo();if((pendCode||pendDev)&&amRevoked()){const me=deviceId();delete S.settings.revoked[me];if(S.settings.devices)delete S.settings.devices[me];try{localStorage.removeItem("center-staffDevice")}catch(x){}skipUndo=true;setTimeout(save,30)}if(pendStaff){try{useStaff()}catch(x){}}if(pendDev){const sec=pendDev;pendDev=null;devSecret=sec;devMode=true;ROLE="owner";nav={view:"settings"};setTimeout(()=>devSetup().then(()=>{devPublish();render()}),30)}if(pendReseal&&S.settings.staff&&Object.keys(S.settings.staff).length){const c2=pendReseal;pendReseal=null;setTimeout(()=>resealStaff(c2).then(()=>save()).catch(()=>{}),80)}if(pendCode&&S.settings.devk){const c=pendCode;pendCode=null;setTimeout(()=>devSeal(c).catch(()=>{}),50)}
+    ensureS();lastWritten=splitState();resetUndo();slogBase=JSON.stringify(S.payments||{});if((pendCode||pendDev)&&amRevoked()){const me=deviceId();delete S.settings.revoked[me];if(S.settings.devices)delete S.settings.devices[me];try{localStorage.removeItem("center-staffDevice")}catch(x){}skipUndo=true;setTimeout(save,30)}if(pendStaff){try{useStaff()}catch(x){}}if(pendDev){const sec=pendDev;pendDev=null;devSecret=sec;devMode=true;ROLE="owner";nav={view:"settings"};setTimeout(()=>devSetup().then(()=>{devPublish();render()}),30)}if(pendReseal&&S.settings.staff&&Object.keys(S.settings.staff).length){const c2=pendReseal;pendReseal=null;setTimeout(()=>resealStaff(c2).then(()=>save()).catch(()=>{}),80)}if(pendCode&&S.settings.devk){const c=pendCode;pendCode=null;setTimeout(()=>devSeal(c).catch(()=>{}),50)}
     try{localStorage.setItem(lsKey(),JSON.stringify(S))}catch(e){}
     if(S.teachers.length){keepGood(S);recoverOffer=null;setTimeout(autoBackup,1500);joinSyncSoon()}else{const g=getGood();recoverOffer=g||null}
     render()};
@@ -893,6 +945,7 @@ function staffList(dev){const M=staffMap(),D=S.settings.devices||{},me=deviceId(
 function staffCard(){const P=S.settings.pins;
   const v=staffDone&&staffMap()[staffDone];
   return `<section class="form staffcard"><h2>${ic("teachers")} السكرتارية</h2>
+  <button class="btn ghost" onclick="slogTab=slogNew().length?'new':'done';go({view:'slog'})">${ic("receipt")} الدفع اللي السكرتارية سجّلته${slogNew().length?` <span class="tbadge num">${arn(slogNew().length)}</span>`:""}</button>
   ${staffList(false)}
   ${staffDevice()?`<div class="kv"><span class="sub">الموبايل ده متسجّل موبايل سكرتير</span><button class="btn ghost sm" onclick="toggleStaffDevice()">خلّيه موبايل عادي</button></div>`:""}
   ${v?`<div class="okbox"><b>✓ ${esc(v.name)} اتضاف</b><div class="sub">كوده <b class="num" dir="ltr">${esc(v.code)}</b>. ابعتله اللينك والكود على الواتساب بدوسة واحدة.</div>
@@ -1131,7 +1184,7 @@ function render(){
   if(needPin()){el.innerHTML=viewLock()+credit();setTimeout(()=>{const i=document.getElementById("pinIn");if(i&&!i.disabled)i.focus()},50);return}
   if(!isOwner()&&["settings","templates","report","editTeacher","addTeacher"].includes(v)){nav={view:"home"};v="home"}
   const vkey=v+"|"+(nav.tid||"")+(nav.gid||"")+(nav.key||""),anim=vkey!==lastViewKey;lastViewKey=vkey;
-  el.innerHTML = `<div class="view${anim?" enter":""}" data-v="${v}">`+(v==="teachers"?viewTeachers(): v==="students"?viewStudents(): v==="templates"?viewTemplates(): v==="report"?viewReport(): v==="teacher"?viewTeacher(): v==="group"?viewGroup(): v==="addTeacher"?viewAddTeacher(): v==="addGroup"?viewAddGroup(): v==="student"?viewStudent(): v==="editTeacher"?viewEditTeacher(): v==="editGroup"?viewEditGroup(): v==="unpaid"?viewUnpaid(): v==="settings"?viewSettings(): viewHome())+`</div>`;
+  el.innerHTML = `<div class="view${anim?" enter":""}" data-v="${v}">`+(v==="teachers"?viewTeachers(): v==="students"?viewStudents(): v==="templates"?viewTemplates(): v==="report"?viewReport(): v==="teacher"?viewTeacher(): v==="group"?viewGroup(): v==="addTeacher"?viewAddTeacher(): v==="addGroup"?viewAddGroup(): v==="student"?viewStudent(): v==="editTeacher"?viewEditTeacher(): v==="editGroup"?viewEditGroup(): v==="unpaid"?viewUnpaid(): v==="settings"?viewSettings(): v==="slog"?viewSlog(): viewHome())+`</div>`;
   el.insertAdjacentHTML("beforeend",flashBar()+undoBar()+receiptModal()+fab()+navBar());try{document.body.classList.add("hasnav")}catch(e){}
   if(offline) el.insertAdjacentHTML("afterbegin",'<div class="note">'+(CLOUD?'مفيش اتصال دلوقتي — التعديلات محفوظة على الجهاز وهتترفع أول ما النت يرجع.':'مش قادر أحفظ دلوقتي.')+'</div>');
   el.insertAdjacentHTML("beforeend",credit());
@@ -1164,7 +1217,7 @@ function viewHome(){
   <header class="hero">${staffDevice()&&!isOwner()?`<button class="iconbtn outb" onclick="signOutNow(this)" aria-label="تسجيل الخروج">${OUTIC}</button>`:pinsOn()?`<button class="iconbtn" onclick="lockNow()" aria-label="قفل البرنامج">${ic("lock")}</button>`:'<span class="iconsp"></span>'}<img src="${LOGO}" alt="${esc(BRAND.name)} — ${esc(BRAND.latin)}" class="hlogo" onclick="logoTap()"><span class="iconsp"></span></header>
   ${own?storiesBox():""}
   <div class="monthnav card" id="monthNav"><button onclick="shiftMonth(-1)" aria-label="الشهر اللي فات">›</button><div class="mn"><b>${monthName(m)}</b><span class="sub">${m===curMonth()?"النهاردة "+DAYS[wd]+" "+now.toLocaleDateString("ar-EG",{day:"numeric",month:"long"}):`<button class="linkbtn" onclick="payMonth=curMonth();render()">ارجع للشهر ده</button>`}</span></div><button onclick="shiftMonth(1)" aria-label="الشهر الجاي">‹</button></div>
-  ${recoverBox()}${own?(recoverOffer?"":startBox())+closeDue():""}
+  ${recoverBox()}${own?(recoverOffer?"":startBox())+closeDue()+slogBar():""}
   ${!S.teachers.length?(own?"":`<div class="empty">لسه مفيش مدرسين.</div>`)
   :`<section class="herokpi ownonly"><div class="hk-ring">${ring(pct,108,10,"var(--ok)")}<span class="hk-pct"><b class="num">${arn(Math.round(pct*100))}٪</b><span>دفعوا</span></span></div>
     <div class="hk-main">${own?`<span class="sub">اتحصّل ${m===curMonth()?"الشهر ده":"في "+monthName(m)}</span><b class="num big"><span data-count="${c}">${arn(c)}</span> <small>ج</small></b>`:`<span class="sub">الطلبة اللي دفعوا</span><b class="num big"><span data-count="${pd}">${arn(pd)}</span> <small>من ${arn(stu)}</small></b>`}
@@ -1241,7 +1294,7 @@ async function sendJoin(e){e.preventDefault();jKeep();const name=(jDraft.jName||
   catch(err){jState="form";jErr=/permission/.test((err&&err.code)||"")?"التسجيل اتقفل. كلّم السنتر.":"ماوصلش. اتأكد من النت وجرّب تاني."}render();jFill()}
 
 /* ================= sign-up requests inside the app ================= */
-var jsOpen=false,REQS=[],reqLoaded=false,reqSig="",stab="all",rYear="",rAssign=null,showQR=false;
+var SLOG=[],slogLoaded=false,slogErr="",slogBase=null,slogTab="new",slogSig="",jsOpen=false,REQS=[],reqLoaded=false,reqSig="",stab="all",rYear="",rAssign=null,showQR=false;
 function reqNew(){return REQS.filter(r=>r.status==="new").length}
 function joinCfg(){return S.settings.join||null}
 function joinLink(){const c=joinCfg();return c?location.origin+location.pathname+"?join="+c.code:""}
@@ -2220,10 +2273,10 @@ function remKey(m){return "center-remSent-"+m}
 function remSent(m){try{return JSON.parse(localStorage.getItem(remKey(m))||"[]")}catch(e){return []}}
 function markSent(){const c=receiptImg&&receiptImg.kind==="reminder"&&receiptImg.ctx;if(!c)return;try{const a=remSent(c.m),k=c.gid+"|"+c.sid;if(!a.includes(k)){a.push(k);localStorage.setItem(remKey(c.m),JSON.stringify(a))}}catch(e){}}
 function nextRem(){const c=receiptImg&&receiptImg.ctx;if(!c)return null;const L=unpaidList(c.m),i=L.findIndex(e=>e.g.id===c.gid&&e.s.id===c.sid);return {i,n:L.length,next:i>=0&&i+1<L.length?L[i+1]:null}}
-function copyReceiptImg(){markSent();try{if(receiptImg&&receiptImg.blob&&window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write){navigator.clipboard.write([new ClipboardItem({"image/png":receiptImg.blob})]).catch(()=>{})}}catch(e){}}
+function copyReceiptImg(){markSent();slogMarkFromReceipt();try{if(receiptImg&&receiptImg.blob&&window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write){navigator.clipboard.write([new ClipboardItem({"image/png":receiptImg.blob})]).catch(()=>{})}}catch(e){}}
 function closeReceipt(){if(receiptImg&&receiptImg.url)URL.revokeObjectURL(receiptImg.url);receiptImg=null;render()}
 function receiptModal(){if(!receiptImg)return "";return `<div class="modal" onclick="if(event.target===this)closeReceipt()"><div class="sheet">
-  ${receiptImg.url?`<img src="${receiptImg.url}" alt="${receiptImg.kind==="unpaid"?"قايمة اللي مادفعوش":receiptImg.kind==="reminder"?"تذكير بالاشتراك":"إيصال الدفع"}">${receiptWa()}${receiptImg.kind==="reminder"&&nav.view==="unpaid"?(()=>{const r=nextRem();return r&&r.next?`<button class="btn ghost nextrem" onclick="const e=nextRem().next;closeReceipt();openReminder('${r.next.g.id}','${r.next.s.id}','${receiptImg.ctx.m}')">${ic("chat")} التذكير اللي بعده: ${esc(r.next.s.name)} <span class="sub">(${arn(r.i+2)} من ${arn(r.n)})</span></button>`:""})():""}<div class="bar"><button class="btn ghost" onclick="deliverBackup(receiptImg)">مشاركة / حفظ</button><button class="btn ghost" onclick="closeReceipt()">قفل</button></div>${receiptImg.msg?`<div class="note">${esc(receiptImg.msg)}</div>`:""}`
+  ${receiptImg.url?`<img src="${receiptImg.url}" alt="${receiptImg.kind==="unpaid"?"قايمة اللي مادفعوش":receiptImg.kind==="reminder"?"تذكير بالاشتراك":"إيصال الدفع"}">${receiptWa()}${receiptImg.kind==="reminder"&&nav.view==="unpaid"?(()=>{const r=nextRem();return r&&r.next?`<button class="btn ghost nextrem" onclick="const e=nextRem().next;closeReceipt();openReminder('${r.next.g.id}','${r.next.s.id}','${receiptImg.ctx.m}')">${ic("chat")} التذكير اللي بعده: ${esc(r.next.s.name)} <span class="sub">(${arn(r.i+2)} من ${arn(r.n)})</span></button>`:""})():""}<div class="bar"><button class="btn ghost" onclick="slogMarkFromReceipt();deliverBackup(receiptImg)">مشاركة / حفظ</button><button class="btn ghost" onclick="closeReceipt()">قفل</button></div>${receiptImg.msg?`<div class="note">${esc(receiptImg.msg)}</div>`:""}`
   :`<div class="empty">${esc(receiptImg.msg||"")}</div><button class="btn ghost" onclick="closeReceipt()">قفل</button>`}</div></div>`}
 async function buildUnpaidPNG(t,items,m){
   try{await Promise.all(['700 60px "Readex Pro"','500 30px "IBM Plex Sans Arabic"','600 30px "IBM Plex Sans Arabic"'].map(f=>document.fonts.load(f)))}catch(e){}
