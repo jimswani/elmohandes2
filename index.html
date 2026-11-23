@@ -661,7 +661,7 @@ function accountsBox(t){
    Leave it as null and the app works on the device only (local mode). */
 const FIREBASE_CONFIG={apiKey:"AIzaSyB3TNutgwCeZZ0mHygE0NI8yCh9m7x6-oI",authDomain:"jimswani-centers.firebaseapp.com",projectId:"jimswani-centers",storageBucket:"jimswani-centers.firebasestorage.app",messagingSenderId:"809726548597",appId:"1:809726548597:web:986921d2087b145af3f63c"};
 const CLOUD=!!(FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey);
-const APP_VERSION="4.1";
+const APP_VERSION="4.2";
 const DEV={name:"م/ محمد جمال",phone:"01069982196",title:"مهندس برمجيات · برامج حسابات السناتر",handle:"jimswani",fb:"https://www.facebook.com/profile.php?id=61588021126316",tiktok:"https://www.tiktok.com/@jimswani"};
 function devWa(){return "https://wa.me/2"+DEV.phone+"?text="+encodeURIComponent("السلام عليكم يا بشمهندس، شفت برنامج "+BRAND.name+" وعايز برنامج زيه لسنتري")}
 let db=null, ref=null, saveTimer=null, saving=false, pending=false, offline=false, dirty=false;
@@ -727,7 +727,7 @@ function splitState(){
 }
 function docRef(key){const base=fsdb.collection("centers").doc(cid());return key==="core"?base:base.collection("months").doc(key.slice(2))}
 async function flush(){saveTimer=null;
-  if(!(CLOUD&&cuser)||wiping||!coreLoaded)return;
+  if(!(CLOUD&&cuser)||wiping||!coreLoaded||!monthsLoaded)return;
   try{const was=lastWritten.core?JSON.parse(lastWritten.core):null;if(was&&(was.teachers||[]).length&&!(S.teachers||[]).length&&!allowEmpty){dirty=false;return}}catch(e){}
   const ae=allowEmpty;allowEmpty=false;
   if(saving){pending=true;return}
@@ -768,7 +768,7 @@ async function startCloud(){
     authState="ready";render();subscribe();
   });
 }
-var monthsLoaded=false,coreLoaded=false,wiping=false,allowEmpty=false,recoverOffer=null;
+var applyLater=false,monthsLoaded=false,coreLoaded=false,wiping=false,allowEmpty=false,recoverOffer=null;
 function goodKey(){return "center-good"+(cuser?"-"+cuser.uid:"")}
 function keepGood(x){try{if(x&&Array.isArray(x.teachers)&&x.teachers.length)localStorage.setItem(goodKey(),JSON.stringify({at:Date.now(),d:x}))}catch(e){}}
 function getGood(){try{const g=JSON.parse(localStorage.getItem(goodKey())||"null");return g&&g.d&&g.d.teachers&&g.d.teachers.length?g:null}catch(e){return null}}
@@ -778,7 +778,7 @@ function subscribe(){coreLoaded=false;monthsLoaded=false;bkTried=false;REQS=[];r
   try{unsubs.push(base.collection("slog").orderBy("at","desc").limit(400).onSnapshot(sn=>{SLOG=sn.docs.map(d=>Object.assign({id:d.id},d.data()||{}));slogLoaded=true;slogErr="";const sig=JSON.stringify(SLOG.map(r=>[r.id,r.done,r.amt,r.removed]));if(sig!==slogSig){slogSig=sig;if(isOwner()&&(nav.view==="home"||nav.view==="slog"))render()}if(isOwner())slogCleanup()},e=>{slogErr=(e&&e.code)||"err";if(isOwner()&&nav.view==="slog")render()}))}catch(e){}
   try{unsubs.push(base.collection("requests").onSnapshot(sn=>{REQS=sn.docs.map(d=>{const x=d.data()||{};let t=0;try{t=x.at&&x.at.toMillis?x.at.toMillis():Date.parse(x.at)||0}catch(e){}return Object.assign({id:d.id,t},x)});const sig=JSON.stringify(REQS.map(r=>[r.id,r.status]));const first=!reqLoaded;reqLoaded=true;if(first||sig!==reqSig){reqSig=sig;if(nav.view==="students"||nav.view==="teachers"||first)render()}},()=>{reqLoaded=true}))}catch(e){}
   let core=null,months={},exps={};
-  const apply=()=>{if(dirty||saving)return;if(core===null){return}
+  const apply=()=>{if(dirty||saving){applyLater=true;return}if(core===null||!monthsLoaded){return}applyLater=false;
     const pay={};for(const m in months)Object.assign(pay,months[m]);
     S={teachers:(core&&core.teachers)||S.teachers||[],locks:(core&&core.locks)||S.locks||{},payouts:(core&&core.payouts)||S.payouts||{},settings:(core&&core.settings)||S.settings||{},attendance:{},payments:core||Object.keys(months).length?pay:(S.payments||{}),expenses:core||Object.keys(months).length?exps:(S.expenses||{})};
     ensureS();lastWritten=splitState();resetUndo();slogBase=JSON.stringify(S.payments||{});if((pendCode||pendDev)&&amRevoked()){const me=deviceId();delete S.settings.revoked[me];if(S.settings.devices)delete S.settings.devices[me];try{localStorage.removeItem("center-staffDevice")}catch(x){}skipUndo=true;setTimeout(save,30)}if(pendStaff){try{useStaff()}catch(x){}}if(pendDev){const sec=pendDev;pendDev=null;devSecret=sec;devMode=true;ROLE="owner";nav={view:"settings"};setTimeout(()=>devSetup().then(()=>{devPublish();render()}),30)}if(pendReseal&&S.settings.staff&&Object.keys(S.settings.staff).length){const c2=pendReseal;pendReseal=null;setTimeout(()=>resealStaff(c2).then(()=>save()).catch(()=>{}),80)}if(pendCode&&S.settings.devk){const c=pendCode;pendCode=null;setTimeout(()=>devSeal(c).catch(()=>{}),50)}
