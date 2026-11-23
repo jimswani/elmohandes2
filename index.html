@@ -661,7 +661,7 @@ function accountsBox(t){
    Leave it as null and the app works on the device only (local mode). */
 const FIREBASE_CONFIG={apiKey:"AIzaSyB3TNutgwCeZZ0mHygE0NI8yCh9m7x6-oI",authDomain:"jimswani-centers.firebaseapp.com",projectId:"jimswani-centers",storageBucket:"jimswani-centers.firebasestorage.app",messagingSenderId:"809726548597",appId:"1:809726548597:web:986921d2087b145af3f63c"};
 const CLOUD=!!(FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey);
-const APP_VERSION="4.2";
+const APP_VERSION="4.3";
 const DEV={name:"م/ محمد جمال",phone:"01069982196",title:"مهندس برمجيات · برامج حسابات السناتر",handle:"jimswani",fb:"https://www.facebook.com/profile.php?id=61588021126316",tiktok:"https://www.tiktok.com/@jimswani"};
 function devWa(){return "https://wa.me/2"+DEV.phone+"?text="+encodeURIComponent("السلام عليكم يا بشمهندس، شفت برنامج "+BRAND.name+" وعايز برنامج زيه لسنتري")}
 let db=null, ref=null, saveTimer=null, saving=false, pending=false, offline=false, dirty=false;
@@ -987,7 +987,7 @@ async function staffNewCode(sid,btn){twice("nc"+sid,async()=>{const v=staffMap()
   catch(err){flash(staffAccErr(err))}render()},btn)}
 function staffKickAll(sid,btn){twice("ka"+sid,async()=>{const u=staffUidOf(sid);if(u)await fsdb.collection("staffDev").doc(u).delete().catch(()=>{});flash("اتطلّع من كل الأجهزة. أي دخول جديد هيحتاج موافقتك.");render()},btn)}
 async function sreqAct(uid,act,btn){const r=STAFFREQS.find(x=>x.uid===uid);if(!r)return;if(btn)btn.disabled=true;
-  try{if(act==="ok"){const d=await fsdb.collection("staffDev").doc(uid).get(),ok=Object.assign({},(d.exists&&d.data().ok)||{});ok[r.key]=Date.now();await fsdb.collection("staffDev").doc(uid).set({center:cid(),ok});flash("اتوافق ✓ "+(r.name||"السكرتير")+" دخل دلوقتي")}
+  try{if(act==="ok"){await fsdb.collection("staffDev").doc(uid).set({center:cid(),ok:{[r.key]:Date.now()}},{merge:true});flash("اتوافق ✓ "+(r.name||"السكرتير")+" دخل دلوقتي")}
     else if(act==="block"){const sid=Object.keys(staffMap()).find(k=>staffMap()[k].uid===uid);await staffDropDocs(uid);if(sid){delete staffMap()[sid];save()}flash("الحساب اتقفل. لو محتاجه ضيفه تاني بكود جديد.")}
     else flash("اترفض");
     await fsdb.collection("staffReq").doc(uid).delete().catch(()=>{})}
