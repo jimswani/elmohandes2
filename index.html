@@ -502,6 +502,12 @@ body{background:radial-gradient(900px 380px at 50% -200px,rgba(216,56,63,.10),tr
 .stu{border-radius:14px}
 
 /* ===== 3.9 تصميم متجاوب: موبايل · تابلت · لاب ===== */
+.sreq{position:fixed;z-index:70;top:calc(10px + env(safe-area-inset-top,0px));left:12px;right:12px;display:grid;gap:8px;max-width:620px;margin:0 auto}
+.sreq-c{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:14px;border-radius:20px;background:var(--card);border:2px solid var(--accent);box-shadow:0 20px 50px rgba(0,0,0,.45);animation:sreqIn .35s cubic-bezier(.2,.9,.25,1)}
+@keyframes sreqIn{from{transform:translateY(-20px);opacity:0}}
+.sreq-i{font-size:26px}.sreq-t{flex:1;min-width:180px;display:grid;gap:2px}.sreq-t b{font-size:15px}.sreq-t small{color:var(--muted);font-size:12px}
+.sreq-a{display:flex;gap:6px;flex-wrap:wrap;width:100%}.sreq-a .btn{flex:1}
+.srow2 .sacts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
 .slogbar{display:flex;align-items:center;gap:12px;width:100%;text-align:right;padding:14px 16px;border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));background:color-mix(in srgb,var(--accent) 9%,var(--card));color:var(--ink);font:inherit;cursor:pointer;margin-bottom:14px}
 .slogbar .sl-ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent);flex:none}.slogbar .sl-ic svg{width:22px;height:22px}
 .slogbar .sl-t{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}.slogbar .sl-n{min-width:28px;height:28px;padding:0 8px;border-radius:99px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:800;font-size:.85rem}
@@ -655,7 +661,7 @@ function accountsBox(t){
    Leave it as null and the app works on the device only (local mode). */
 const FIREBASE_CONFIG={apiKey:"AIzaSyB3TNutgwCeZZ0mHygE0NI8yCh9m7x6-oI",authDomain:"jimswani-centers.firebaseapp.com",projectId:"jimswani-centers",storageBucket:"jimswani-centers.firebasestorage.app",messagingSenderId:"809726548597",appId:"1:809726548597:web:986921d2087b145af3f63c"};
 const CLOUD=!!(FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey);
-const APP_VERSION="4.0";
+const APP_VERSION="4.1";
 const DEV={name:"م/ محمد جمال",phone:"01069982196",title:"مهندس برمجيات · برامج حسابات السناتر",handle:"jimswani",fb:"https://www.facebook.com/profile.php?id=61588021126316",tiktok:"https://www.tiktok.com/@jimswani"};
 function devWa(){return "https://wa.me/2"+DEV.phone+"?text="+encodeURIComponent("السلام عليكم يا بشمهندس، شفت برنامج "+BRAND.name+" وعايز برنامج زيه لسنتري")}
 let db=null, ref=null, saveTimer=null, saving=false, pending=false, offline=false, dirty=false;
@@ -670,8 +676,8 @@ function save(){if(wiping)return;
   setTimeout(()=>{try{slogDiff()}catch(e){}},0);
 }
 /* ===== سجل دفع السكرتارية: كل دفعة يسجلها السكرتير بتظهر لصاحب السنتر عشان يبعت الإيصال ===== */
-function slogActor(){if(isOwner())return null;const d=((S.settings||{}).devices||{})[deviceId()]||{},v=d.sid&&staffMap()[d.sid];return {sid:d.sid||"",name:(v&&v.name)||d.name||"السكرتير"}}
-function slogCol(){return fsdb&&cuser?fsdb.collection("centers").doc(cuser.uid).collection("slog"):null}
+function slogActor(){if(!STAFF)return null;return {sid:STAFF.sid||"",name:STAFF.name||"السكرتير"}}
+function slogCol(){return fsdb&&cuser?fsdb.collection("centers").doc(cid()).collection("slog"):null}
 function slogId(gid,sid,m){return (gid+"_"+sid+"_"+m).replace(/[^\w-]/g,"").slice(0,140)}
 function slogDiff(){const a=slogActor();const now=JSON.stringify(S.payments||{});if(!a||slogBase===null){slogBase=now;return}if(now===slogBase)return;
   const A=JSON.parse(slogBase),B=S.payments||{},col=slogCol();slogBase=now;if(!col)return;
@@ -719,7 +725,7 @@ function splitState(){
   for(const m in months){const d={payments:months[m]};const ex=(S.expenses||{})[m];if(ex&&ex.length)d.expenses=ex;docs["m:"+m]=JSON.stringify(d)}
   return docs;
 }
-function docRef(key){const base=fsdb.collection("centers").doc(cuser.uid);return key==="core"?base:base.collection("months").doc(key.slice(2))}
+function docRef(key){const base=fsdb.collection("centers").doc(cid());return key==="core"?base:base.collection("months").doc(key.slice(2))}
 async function flush(){saveTimer=null;
   if(!(CLOUD&&cuser)||wiping||!coreLoaded)return;
   try{const was=lastWritten.core?JSON.parse(lastWritten.core):null;if(was&&(was.teachers||[]).length&&!(S.teachers||[]).length&&!allowEmpty){dirty=false;return}}catch(e){}
@@ -746,10 +752,15 @@ async function startCloud(){
   firebase.initializeApp(FIREBASE_CONFIG);
   fauth=firebase.auth();fsdb=firebase.firestore();
   try{await fsdb.enablePersistence({synchronizeTabs:true})}catch(e){}
+  try{localStorage.removeItem("center-ac")}catch(e){}
   fauth.onAuthStateChanged(async u=>{
-    unsubs.forEach(f=>f());unsubs=[];cuser=u;lastWritten={};dirty=false;
+    unsubs.forEach(f=>f());unsubs=[];cuser=u;lastWritten={};dirty=false;STAFF=null;CID=null;
     if(!u){S={teachers:[],attendance:{},payments:{}};nav={view:"home"};authState="login";render();return}
     if(loginGen()!==LOGIN_GEN){setLoginGen();authChoice="";try{await fauth.signOut()}catch(e){}return}
+    if(/^s-/.test(u.email||"")){await staffEnter(u);return}
+    /* a phone that used the old secretary login (it was signed in with the center's own account): sign it out for good */
+    if(oldStaffPhone()){try{localStorage.removeItem("center-staffDevice");localStorage.removeItem("center-main-"+u.uid);localStorage.removeItem("center-good-"+u.uid)}catch(e){}
+      authChoice="staff";authErr="دخول السكرتارية اتغيّر عشان الأمان. اطلب كودك الجديد من صاحب السنتر.";try{await fauth.signOut()}catch(e){}return}
     loadLocal();authState="checking";render();
     try{const lic=await fsdb.collection("licenses").doc(u.uid).get();
       if(!lic.exists||lic.data().active!==true){authState="blocked";render();return}}
@@ -762,7 +773,8 @@ function goodKey(){return "center-good"+(cuser?"-"+cuser.uid:"")}
 function keepGood(x){try{if(x&&Array.isArray(x.teachers)&&x.teachers.length)localStorage.setItem(goodKey(),JSON.stringify({at:Date.now(),d:x}))}catch(e){}}
 function getGood(){try{const g=JSON.parse(localStorage.getItem(goodKey())||"null");return g&&g.d&&g.d.teachers&&g.d.teachers.length?g:null}catch(e){return null}}
 function subscribe(){coreLoaded=false;monthsLoaded=false;bkTried=false;REQS=[];reqLoaded=false;SLOG=[];slogLoaded=false;slogErr="";slogBase=null;
-  const base=fsdb.collection("centers").doc(cuser.uid);
+  const base=fsdb.collection("centers").doc(cid()),asStaff=!!STAFF;
+  if(STAFF)staffWatch();else staffAdminWatch();
   try{unsubs.push(base.collection("slog").orderBy("at","desc").limit(400).onSnapshot(sn=>{SLOG=sn.docs.map(d=>Object.assign({id:d.id},d.data()||{}));slogLoaded=true;slogErr="";const sig=JSON.stringify(SLOG.map(r=>[r.id,r.done,r.amt,r.removed]));if(sig!==slogSig){slogSig=sig;if(isOwner()&&(nav.view==="home"||nav.view==="slog"))render()}if(isOwner())slogCleanup()},e=>{slogErr=(e&&e.code)||"err";if(isOwner()&&nav.view==="slog")render()}))}catch(e){}
   try{unsubs.push(base.collection("requests").onSnapshot(sn=>{REQS=sn.docs.map(d=>{const x=d.data()||{};let t=0;try{t=x.at&&x.at.toMillis?x.at.toMillis():Date.parse(x.at)||0}catch(e){}return Object.assign({id:d.id,t},x)});const sig=JSON.stringify(REQS.map(r=>[r.id,r.status]));const first=!reqLoaded;reqLoaded=true;if(first||sig!==reqSig){reqSig=sig;if(nav.view==="students"||nav.view==="teachers"||first)render()}},()=>{reqLoaded=true}))}catch(e){}
   let core=null,months={},exps={};
@@ -771,16 +783,16 @@ function subscribe(){coreLoaded=false;monthsLoaded=false;bkTried=false;REQS=[];r
     S={teachers:(core&&core.teachers)||S.teachers||[],locks:(core&&core.locks)||S.locks||{},payouts:(core&&core.payouts)||S.payouts||{},settings:(core&&core.settings)||S.settings||{},attendance:{},payments:core||Object.keys(months).length?pay:(S.payments||{}),expenses:core||Object.keys(months).length?exps:(S.expenses||{})};
     ensureS();lastWritten=splitState();resetUndo();slogBase=JSON.stringify(S.payments||{});if((pendCode||pendDev)&&amRevoked()){const me=deviceId();delete S.settings.revoked[me];if(S.settings.devices)delete S.settings.devices[me];try{localStorage.removeItem("center-staffDevice")}catch(x){}skipUndo=true;setTimeout(save,30)}if(pendStaff){try{useStaff()}catch(x){}}if(pendDev){const sec=pendDev;pendDev=null;devSecret=sec;devMode=true;ROLE="owner";nav={view:"settings"};setTimeout(()=>devSetup().then(()=>{devPublish();render()}),30)}if(pendReseal&&S.settings.staff&&Object.keys(S.settings.staff).length){const c2=pendReseal;pendReseal=null;setTimeout(()=>resealStaff(c2).then(()=>save()).catch(()=>{}),80)}if(pendCode&&S.settings.devk){const c=pendCode;pendCode=null;setTimeout(()=>devSeal(c).catch(()=>{}),50)}
     try{localStorage.setItem(lsKey(),JSON.stringify(S))}catch(e){}
-    if(S.teachers.length){keepGood(S);recoverOffer=null;setTimeout(autoBackup,1500);joinSyncSoon()}else{const g=getGood();recoverOffer=g||null}
+    staffMigrate();if(S.teachers.length){keepGood(S);recoverOffer=null;setTimeout(autoBackup,1500);joinSyncSoon()}else{const g=getGood();recoverOffer=g||null}
     render()};
-  unsubs.push(base.onSnapshot(sn=>{if(sn.metadata.hasPendingWrites)return;core=sn.exists?sn.data():{teachers:[]};coreLoaded=true;offline=false;apply()},e=>{offline=true;if(e&&e.code==="permission-denied")authState="blocked";render()}));
+  unsubs.push(base.onSnapshot(sn=>{if(sn.metadata.hasPendingWrites)return;core=sn.exists?sn.data():{teachers:[]};coreLoaded=true;offline=false;apply()},e=>{offline=true;if(e&&e.code==="permission-denied"){if(asStaff){if(STAFF)staffOut("صاحب السنتر طلّعك من البرنامج. لو ده غلط كلّمه.");return}authState="blocked"}render()}));
   unsubs.push(base.collection("months").onSnapshot(sn=>{if(sn.metadata.hasPendingWrites)return;monthsLoaded=true;const m={};const ex={};sn.docs.forEach(d=>{const x=d.data()||{};m[d.id]=(x.payments||{});if(Array.isArray(x.expenses)&&x.expenses.length)ex[d.id]=x.expenses});months=m;exps=ex;apply()},()=>{offline=true;render()}));
 }
 async function doLogin(e){
   e.preventDefault();authErr="";
   const code=document.getElementById("lgPass").value.trim();
   const btn=document.getElementById("lgBtn");btn.disabled=true;btn.textContent="جاري التفعيل…";
-  try{setLoginGen();await fauth.signInWithEmailAndPassword(BRAND.account,code);try{localStorage.removeItem("center-staffDevice")}catch(x){}pendCode=code;pendReseal=code;actSave(code)}
+  try{setLoginGen();try{localStorage.removeItem("center-staffDevice")}catch(x){}await fauth.signInWithEmailAndPassword(BRAND.account,code);pendCode=code}
   catch(err){const c=err&&err.code||"";authErr=/invalid|wrong|not-found|credential/.test(c)?"كود التفعيل غلط. اتأكد منه وجرّب تاني.":/network/.test(c)?"مفيش نت. اتأكد من الاتصال وجرّب تاني.":/too-many/.test(c)?"محاولات كتير. استنى شوية وجرّب تاني.":"ماقدرتش أفعّل البرنامج. جرّب تاني.";authState="login";render()}
 }
 const LOGIN_GEN="2"; // bump to sign every phone out once (they log in again from the entry screen)
@@ -791,6 +803,7 @@ function signOutNow(btn){twice("so",async()=>{try{devLock()}catch(e){}try{localS
 var authChoice="";
 function viewAuth(){
   const head=`<header class="brand"><img src="${LOGO}" alt="${esc(BRAND.name)}"><div class="sub">${esc(BRAND.name)}</div></header>`;
+  if(authState==="wait")return `<div class="gate">${`<div class="gtop sm"><div class="glow"></div><img src="${LOGO}" alt="${esc(BRAND.name)}" class="glogo"></div>`}<div class="gform"><div class="spbar"><i></i></div><h2>مستني موافقة صاحب السنتر</h2><div class="sub center">ده أول دخول من الموبايل ده. صاحب السنتر وصله طلب على البرنامج، وأول ما يوافق هتدخل على طول.</div><button class="btn ghost" onclick="staffOut('')">خروج</button></div></div>`;
   if(authState==="loading"||authState==="checking")return `<div class="splash"><img src="${LOGO}" alt="${esc(BRAND.name)}" class="splogo"><div class="spbar"><i></i></div></div>`;
   if(authState==="blocked")return head+`<div class="form"><h2>الاشتراك موقوف</h2><div class="sub">الحساب ده مش مفعّل دلوقتي. كلّم الدعم الفني عشان يتفعّل تاني، وبياناتك محفوظة زي ما هي.</div>
     <div class="bar"><span class="pill">الدعم: <span dir="ltr">${esc(DEV.phone)}</span></span></div><button class="btn ghost" onclick="logout()">خروج</button></div>`;
@@ -800,7 +813,7 @@ function viewAuth(){
     <div class="doors"><button class="door own" onclick="authChoice='owner';authErr='';render()"><span class="dic">${ic("key")}</span><span class="dt"><span class="dl">صاحب السنتر</span><b>${esc(BRAND.short)}</b></span><span class="dgo">‹</span></button>
     <button class="door" onclick="authChoice='staff';authErr='';render()"><span class="dic">${ic("teachers")}</span><span class="dt"><span class="dl">فريق السنتر</span><b>السكرتير</b></span><span class="dgo">‹</span></button></div></div>`;
   if(authChoice==="staff")return `<div class="gate">${top(false)}<form class="gform" onsubmit="staffLogin(event)"><span class="rolechip">${ic("teachers")} السكرتير</span><h2>اكتب كودك</h2>
-    <input id="sfIn" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off" required class="pinbox">${authErr?`<div class="note">${esc(authErr)}</div>`:""}
+    <input id="sfIn" type="password" autocapitalize="characters" spellcheck="false" maxlength="24" autocomplete="off" required class="pinbox" dir="ltr" style="letter-spacing:.12em">${authErr?`<div class="note">${esc(authErr)}</div>`:""}
     <button class="btn big" id="sfBtn">دخول</button><button type="button" class="btn ghost" onclick="authChoice='';authErr='';render()">رجوع</button></form></div>`;
   return `<div class="gate">${top(false)}<form class="gform" onsubmit="doLogin(event)"><span class="rolechip">${ic("key")} صاحب السنتر · ${esc(BRAND.short)}</span><h2>كود التفعيل</h2>
     <input id="lgPass" type="password" autocomplete="current-password" required dir="ltr" class="pinbox" style="letter-spacing:.2em">
@@ -876,16 +889,16 @@ function devPanel(){if(!devMode)return "";const em=BRAND.account,uid=cuser&&cuse
    <div class="bar"><input id="dvNew" autocomplete="off" placeholder="الكود الجديد" dir="ltr" required style="flex:1"><button type="button" class="btn ghost" onclick="const c=devRand();document.getElementById('dvNew').value=c;document.getElementById('dvNew2').value=c">عشوائي</button></div>
    <input id="dvNew2" autocomplete="off" placeholder="اكتب الكود الجديد تاني" dir="ltr" required>${devErr?`<div class="note">${esc(devErr)}</div>`:""}<button class="btn" id="dvGo">غيّر الكود</button></form>`}
   <details class="devsec"><summary><b>السكرتارية</b> <span class="sub">(كل واحد بالكود بتاعه)</span> <span class="sub">(${arn(Object.keys(S.settings.staff||{}).length)})</span></summary>${staffList(true)}</details></section>`}
-function devRand(){const L="ABCDEFGHJKMNPQRSTUVWXYZ",a=new Uint32Array(9);crypto.getRandomValues(a);let s="";for(let i=0;i<3;i++)s+=L[a[i]%L.length];s+="-";for(let i=3;i<9;i++)s+=a[i]%10;return s}
+function devRand(){return randCode()}
 async function devRemember(){const el=document.getElementById("dvCur"),cur=el?el.value.trim():"";devErr="";if(!cur){devErr="اكتب الكود الحالي.";render();return}
   if(!(CLOUD&&fauth&&fauth.currentUser)){devErr="لازم البرنامج يكون متفعّل ومتصل بالنت.";render();return}
   try{await fauth.currentUser.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(BRAND.account,cur));await devSeal(cur);devCode=cur;flash("الكود اتحفظ")}
   catch(err){const c=(err&&err.code)||"";devErr=/invalid|wrong|credential|mismatch/.test(c)?"الكود الحالي غلط.":/network/.test(c)?"مفيش نت. جرّب تاني.":"حصل خطأ: "+c}render()}
 async function devChange(e){e.preventDefault();const cur=devCode||document.getElementById("dvCur").value,nw=document.getElementById("dvNew").value.trim(),nw2=document.getElementById("dvNew2").value.trim();devErr="";
-  if(nw.length<6){devErr="الكود الجديد لازم يكون ٦ حروف أو أرقام على الأقل.";render();return}if(nw!==nw2){devErr="الكود الجديد مش زي التأكيد.";render();return}if(nw===cur){devErr="الكود الجديد زي القديم.";render();return}
+  if(!codeStrong(nw)){devErr="الكود الجديد لازم يكون ١٠ على الأقل، فيه حروف إنجليزي وأرقام. دوس «عشوائي».";render();return}if(nw!==nw2){devErr="الكود الجديد مش زي التأكيد.";render();return}if(nw===cur){devErr="الكود الجديد زي القديم.";render();return}
   if(!(CLOUD&&fauth&&fauth.currentUser)){devErr="لازم البرنامج يكون متفعّل ومتصل بالنت.";render();return}
   const b=document.getElementById("dvGo");if(b){b.disabled=true;b.textContent="جاري التغيير…"}
-  try{const u=fauth.currentUser;await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(BRAND.account,cur));await u.updatePassword(nw);devDone=nw;if(!staffDevice())actSave(nw);try{await resealStaff(nw);save()}catch(x){}try{await devSeal(nw);devCode=nw;devShow=false}catch(x){}}
+  try{const u=fauth.currentUser;await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(BRAND.account,cur));await u.updatePassword(nw);devDone=nw;try{await devSeal(nw);devCode=nw;devShow=false}catch(x){}}
   catch(err){const c=(err&&err.code)||"";devErr=/invalid|wrong|credential|mismatch/.test(c)?"الكود الحالي غلط.":/weak/.test(c)?"الكود الجديد ضعيف، خليه أطول.":/network/.test(c)?"مفيش نت. جرّب تاني.":/too-many/.test(c)?"محاولات كتير، استنى شوية.":"حصل خطأ: "+c}
   render()}
 function credit(){return `<footer class="credit"><span class="devline"><i></i>برمجة ${esc(DEV.name)}</span><span class="ver" onclick="devTap()">${APP_VERSION}</span></footer>${devAsk?devAskBox():""}`}
@@ -895,7 +908,8 @@ function devCard(){return `<section class="devcard"><div class="dvh"><span class
   <div class="dvb"><a class="btn wa" href="${devWa()}" target="_blank" rel="noopener">واتساب</a><a class="btn ghost" href="tel:${esc(DEV.phone)}">اتصال <span dir="ltr" class="num">${esc(DEV.phone)}</span></a></div>
   <div class="dvs"><a href="${DEV.fb}" target="_blank" rel="noopener">Facebook</a><a href="${DEV.tiktok}" target="_blank" rel="noopener">TikTok @${esc(DEV.handle)}</a></div></section>`}
 var ROLE=null,pinErr="",pinTries=0,pinWait=0,pinForgot=false,lastHidden=0;
-function staffDevice(){try{return localStorage.getItem("center-staffDevice")==="1"}catch(e){return false}}
+function staffDevice(){return !!STAFF}
+function oldStaffPhone(){try{return localStorage.getItem("center-staffDevice")==="1"}catch(e){return false}}
 function deviceId(){try{let d=localStorage.getItem("center-deviceId");if(!d){d="d"+Date.now().toString(36)+Math.random().toString(36).slice(2,8);localStorage.setItem("center-deviceId",d)}return d}catch(e){return "d-none"}}
 var staffNaming=false;
 function toggleStaffDevice(){if(staffDevice()){try{localStorage.removeItem("center-staffDevice")}catch(e){}if(S.settings.devices)delete S.settings.devices[deviceId()];save();flash("الموبايل ده رجع موبايل عادي ✓");render()}else{staffNaming=true;render();setTimeout(()=>{const i=document.getElementById("sdName");if(i)i.focus()},50)}}
@@ -903,7 +917,7 @@ function saveStaffDevice(e){e.preventDefault();const n=(document.getElementById(
   if(S.settings.revoked)delete S.settings.revoked[deviceId()];try{localStorage.setItem("center-staffDevice","1")}catch(x){}staffNaming=false;save();flash("«"+n+"» بقى موبايل الموظف ✓");lockNow()}
 function kickDevice(id,btn){twice("kd"+id,()=>{const d=(S.settings.devices||{})[id];S.settings.revoked=S.settings.revoked||{};S.settings.revoked[id]={name:d?d.name:"موبايل",at:new Date().toISOString()};delete S.settings.devices[id];save();flash("«"+(d?d.name:"الموبايل")+"» اتشال من البرنامج ✓");render()},btn)}
 function allowDevice(id){if(S.settings.revoked)delete S.settings.revoked[id];save();flash("الموبايل ده يقدر يرجع تاني ✓");render()}
-function fireStaff(btn){twice("fire",()=>{const P=S.settings.pins||{};delete P.staff;delete P.staffPin;delete S.settings.invites;Object.values(S.settings.staff||{}).forEach(v=>staffUnpublish(v.cid));S.settings.staff={};const D=S.settings.devices||{};S.settings.revoked=S.settings.revoked||{};for(const id in D){if(id!==deviceId())S.settings.revoked[id]={name:D[id].name,at:new Date().toISOString()};delete D[id]}save();flash("السكرتارية اتشالوا من البرنامج ✓");render()},btn)}
+function fireStaff(btn){twice("fire",()=>{const P=S.settings.pins||{};delete P.staff;delete P.staffPin;delete S.settings.invites;Object.values(S.settings.staff||{}).forEach(v=>{staffUnpublish(v.cid);staffDropDocs(v.uid)});Object.keys(STAFFDOCS).forEach(u=>staffDropDocs(u));S.settings.staff={};const D=S.settings.devices||{};S.settings.revoked=S.settings.revoked||{};for(const id in D){if(id!==deviceId())S.settings.revoked[id]={name:D[id].name,at:new Date().toISOString()};delete D[id]}save();flash("السكرتارية اتشالوا من البرنامج ✓");render()},btn)}
 var showStaffPin=false;
 /* ---------- secretaries: each has a name + his own code chosen by the owner ---------- */
 function staffMap(){return S.settings.staff||(S.settings.staff={})}
@@ -914,48 +928,106 @@ async function staffPublish(sid,code,act){const id=await staffDocId(code),k=awai
   const ct=await crypto.subtle.encrypt({name:"AES-GCM",iv},k,new TextEncoder().encode(JSON.stringify({c:act,s:sid})));
   await fsdb.collection("staffcodes").doc(id).set({owner:cuser.uid,iv:b64(iv),ct:b64(ct)});return id}
 async function staffUnpublish(id){try{if(id&&fsdb)await fsdb.collection("staffcodes").doc(id).delete()}catch(e){}}
-async function resealStaff(act){const M=S.settings.staff||{};for(const sid in M){try{if(M[sid].code)M[sid].cid=await staffPublish(sid,M[sid].code,act)}catch(e){}}}
+async function resealStaff(act){}
 function codeTaken(h){const P=S.settings.pins||{};if(h===P.owner)return "ده الرقم السري بتاع قفل البرنامج. اختار كود تاني.";if(Object.values(S.settings.staff||{}).some(v=>v.h===h))return "الكود ده مع سكرتير تاني. اختار كود تاني.";return ""}
-function actSave(c){try{localStorage.setItem("center-ac",c)}catch(e){}}function actGet(){try{return localStorage.getItem("center-ac")||""}catch(e){return ""}}
+function actSave(c){}function actGet(){return ""}
 function staffRand(){const a=new Uint32Array(6);crypto.getRandomValues(a);return [...a].map(x=>x%10).join("")}
 var pendReseal=null,addStaff=false,staffErr="",staffDone=null,showCode={};
-async function saveStaff(e){e.preventDefault();staffErr="";const name=(document.getElementById("sfName").value||"").trim(),phone=(document.getElementById("sfPhone").value||"").trim(),code=(document.getElementById("sfCode").value||"").trim(),ae=document.getElementById("sfAct"),act=ae?ae.value.trim():actGet();
-  if(!name){staffErr="اكتب اسم السكرتير.";render();return}if(!/^\d{6,8}$/.test(code)){staffErr="كود السكرتير لازم يكون من ٦ لـ ٨ أرقام.";render();return}
-  const h=await hashPin(code),tk=codeTaken(h);if(tk){staffErr=tk;render();return}
+/* ===== 4.1: every secretary has his own Firebase account; every new phone needs the owner's OK (checked by Firebase itself) ===== */
+var STAFF=null,CID=null,STAFFDOCS={},STAFFDEVS={},STAFFREQS=[],staffWaitInfo=null,newCodes={};
+function cid(){return CID||(cuser&&cuser.uid)}
+function codeNorm(c){return String(c||"").toUpperCase().replace(/[^A-Z0-9]/g,"")}
+function codeStrong(c){c=codeNorm(c);return c.length>=10&&/[A-Z]/.test(c)&&/[0-9]/.test(c)}
+function randCode(){const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",a=new Uint32Array(12);crypto.getRandomValues(a);let c=[...a].map(x=>A[x%A.length]).join("");if(!/[0-9]/.test(c))c=c.slice(0,11)+"7";if(!/[A-Z]/.test(c))c="K"+c.slice(1);return c}
+function staffEmail(code){const [slug,dom]=BRAND.account.split("@");return "s-"+slug+"-"+codeNorm(code).toLowerCase()+"@"+dom}
+async function devKey(u){const r=await u.getIdTokenResult();return String(r.claims.auth_time)}
+function devName(){const u=navigator.userAgent;const os=/iPhone|iPad/.test(u)?"آيفون":/Android/.test(u)?"أندرويد":/Windows/.test(u)?"ويندوز":/Mac/.test(u)?"ماك":"جهاز";const br=/Edg\//.test(u)?"Edge":/Chrome\//.test(u)?"Chrome":/Safari\//.test(u)?"Safari":/Firefox\//.test(u)?"Firefox":"";return (os+(br?" · "+br:"")).slice(0,60)}
+async function staffEnter(u){authState="checking";render();
+  let x=null;try{const d=await fsdb.collection("staff").doc(u.uid).get();x=d.exists?d.data():null}catch(e){authState="login";authChoice="staff";authErr="مش قادر أوصل للنت. افتح البرنامج تاني لما النت يرجع.";render();return}
+  if(!x||x.active!==true||!x.center){authChoice="staff";authErr="الكود ده اتلغى. اطلب كود جديد من صاحب السنتر.";try{await fauth.signOut()}catch(e){}return}
+  STAFF=Object.assign({uid:u.uid},x);CID=x.center;
+  let k="",okd=false;try{k=await devKey(u);const v=await fsdb.collection("staffDev").doc(u.uid).get({source:"server"});okd=!!(v.exists&&(v.data().ok||{})[k])}catch(e){}
+  if(!okd){staffWaitFor(u,k);return}
+  ROLE="staff";nav={view:"home"};loadLocal();authState="ready";render();subscribe()}
+function staffWaitFor(u,k){authState="wait";staffWaitInfo={name:STAFF.name};render();
+  fsdb.collection("staffReq").doc(u.uid).set({center:CID,key:k,dev:devName(),name:String(STAFF.name||"السكرتير").slice(0,50),at:new Date().toISOString()}).catch(()=>{});
+  unsubs.push(fsdb.collection("staffDev").doc(u.uid).onSnapshot(d=>{if(d.exists&&(d.data().ok||{})[k]&&authState==="wait"){unsubs.forEach(f=>f());unsubs=[];staffEnter(u)}},()=>{}));
+  unsubs.push(fsdb.collection("staff").doc(u.uid).onSnapshot(d=>{if(!d.exists||d.data().active!==true)staffOut("صاحب السنتر رفض الدخول. لو ده غلط كلّمه.")},()=>{}))}
+function staffWatch(){const uid=STAFF.uid;
+  unsubs.push(fsdb.collection("staff").doc(uid).onSnapshot(d=>{if(!d.exists||d.data().active!==true)staffOut("الكود بتاعك اتلغى. اطلب كود جديد من صاحب السنتر.")},()=>{}))}
+var outing=false;
+async function staffOut(msg){if(outing)return;outing=true;wiping=true;clearTimeout(saveTimer);saveTimer=null;dirty=false;
+  try{unsubs.forEach(f=>f());unsubs=[]}catch(e){}try{localStorage.removeItem(lsKey());localStorage.removeItem(goodKey())}catch(e){}
+  S={teachers:[],attendance:{},payments:{}};ROLE=null;authChoice="staff";authErr=msg||"";
+  try{await fauth.signOut()}catch(e){}outing=false;wiping=false;render()}
+/* owner: watch his secretaries, their phones and the new-phone requests */
+function staffAdminWatch(){if(!fsdb||!cuser||cuser.email!==BRAND.account)return;const c=cid();
+  unsubs.push(fsdb.collection("staff").where("center","==",c).onSnapshot(sn=>{const m={};sn.docs.forEach(d=>m[d.id]=d.data());STAFFDOCS=m;if(nav.view==="settings")render()},()=>{}));
+  unsubs.push(fsdb.collection("staffDev").where("center","==",c).onSnapshot(sn=>{const m={};sn.docs.forEach(d=>m[d.id]=Object.keys((d.data()||{}).ok||{}).length);STAFFDEVS=m;if(nav.view==="settings")render()},()=>{}));
+  unsubs.push(fsdb.collection("staffReq").where("center","==",c).onSnapshot(sn=>{const was=STAFFREQS.length;STAFFREQS=sn.docs.map(d=>Object.assign({uid:d.id},d.data()));if(STAFFREQS.length||was)render()},()=>{}))}
+function staffUidOf(sid){const v=staffMap()[sid];return v&&v.uid}
+function staffCode(sid){const u=staffUidOf(sid);return newCodes[sid]||(u&&STAFFDOCS[u]&&STAFFDOCS[u].code)||""}
+async function staffMakeAccount(code){const sec=(firebase.apps||[]).find(a=>a.name==="sec")||firebase.initializeApp(FIREBASE_CONFIG,"sec");
+  const cred=await sec.auth().createUserWithEmailAndPassword(staffEmail(code),codeNorm(code));const uid=cred.user.uid;try{await sec.auth().signOut()}catch(e){}return uid}
+function staffAccErr(err){const c=(err&&err.code)||"";return /email-already/.test(c)?"الكود ده مستخدم قبل كده. دوس 🎲 واعمل كود تاني.":/admin-restricted|operation-not-allowed/.test(c)?"إنشاء حسابات السكرتارية مقفول في Firebase. فعّل «Enable create (sign-up)» من Authentication ← Settings ← User actions.":/network/.test(c)?"مفيش نت. جرّب تاني.":/weak/.test(c)?"الكود ضعيف. دوس 🎲 واعمل كود قوي.":/permission/.test(c)?"Firebase رفض الحفظ. انشر ملف الـ Rules الجديد.":"ماقدرتش أعمل الحساب. جرّب تاني."}
+async function staffDropDocs(uid){if(!uid||!fsdb)return;await Promise.all(["staffDev","staffReq","staff"].map(c=>fsdb.collection(c).doc(uid).delete().catch(()=>{})))}
+var staffDraft={};
+async function saveStaff(e){e.preventDefault();staffErr="";const name=(document.getElementById("sfName").value||"").trim(),phone=(document.getElementById("sfPhone").value||"").trim(),code=codeNorm(document.getElementById("sfCode").value);staffDraft={name,phone,code};
+  if(!name){staffErr="اكتب اسم السكرتير.";render();return}if(!codeStrong(code)){staffErr="الكود لازم يكون ١٠ على الأقل، فيه حروف إنجليزي وأرقام. دوس 🎲 يعملك كود قوي.";render();return}
   if(!(CLOUD&&fauth&&fauth.currentUser&&fsdb)){staffErr="لازم تكون متصل بالنت.";render();return}
   const b=document.getElementById("sfGo");if(b){b.disabled=true;b.textContent="جاري الحفظ…"}
-  try{await fauth.currentUser.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(BRAND.account,act))}
-  catch(err){const c=(err&&err.code)||"";if(!ae&&/invalid|wrong|credential|mismatch/.test(c)){actSave("");staffErr="اكتب كود التفعيل مرة واحدة للتأكيد.";render();return}staffErr=/invalid|wrong|credential|mismatch/.test(c)?"كود التفعيل غلط.":/network/.test(c)?"مفيش نت. جرّب تاني.":/too-many/.test(c)?"محاولات كتير، استنى شوية.":"حصل خطأ: "+c;render();return}
   const sid="s"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
-  try{const cid=await staffPublish(sid,code,act);staffMap()[sid]={name,phone,code,h,cid,at:new Date().toISOString()};actSave(act)}
-  catch(err){staffErr="ماقدرتش أحفظ الكود. اتأكد من النت، ولو المشكلة فضلت كلّم الدعم الفني.";render();return}
-  addStaff=false;staffDone=sid;save();render()}
+  try{const uid=await staffMakeAccount(code);await fsdb.collection("staff").doc(uid).set({center:cid(),sid,name:name.slice(0,50),phone:phone.slice(0,20),code,active:true,at:new Date().toISOString()});
+    staffMap()[sid]={name,phone,uid,at:new Date().toISOString()};newCodes[sid]=code}
+  catch(err){staffErr=staffAccErr(err);render();return}
+  addStaff=false;staffDraft={};staffDone=sid;save();render()}
+async function staffNewCode(sid,btn){twice("nc"+sid,async()=>{const v=staffMap()[sid];if(!v)return;const code=randCode(),old=v.uid;
+  try{const uid=await staffMakeAccount(code);await fsdb.collection("staff").doc(uid).set({center:cid(),sid,name:String(v.name||"").slice(0,50),phone:String(v.phone||"").slice(0,20),code,active:true,at:new Date().toISOString()});
+    await staffDropDocs(old);const w=staffMap()[sid]||(staffMap()[sid]=Object.assign({},v));w.uid=uid;delete w.code;delete w.h;delete w.cid;delete w.legacy;newCodes[sid]=code;staffDone=sid;save();flash("اتعمل كود جديد. الكود القديم اتلغى.")}
+  catch(err){flash(staffAccErr(err))}render()},btn)}
+function staffKickAll(sid,btn){twice("ka"+sid,async()=>{const u=staffUidOf(sid);if(u)await fsdb.collection("staffDev").doc(u).delete().catch(()=>{});flash("اتطلّع من كل الأجهزة. أي دخول جديد هيحتاج موافقتك.");render()},btn)}
+async function sreqAct(uid,act,btn){const r=STAFFREQS.find(x=>x.uid===uid);if(!r)return;if(btn)btn.disabled=true;
+  try{if(act==="ok"){const d=await fsdb.collection("staffDev").doc(uid).get(),ok=Object.assign({},(d.exists&&d.data().ok)||{});ok[r.key]=Date.now();await fsdb.collection("staffDev").doc(uid).set({center:cid(),ok});flash("اتوافق ✓ "+(r.name||"السكرتير")+" دخل دلوقتي")}
+    else if(act==="block"){const sid=Object.keys(staffMap()).find(k=>staffMap()[k].uid===uid);await staffDropDocs(uid);if(sid){delete staffMap()[sid];save()}flash("الحساب اتقفل. لو محتاجه ضيفه تاني بكود جديد.")}
+    else flash("اترفض");
+    await fsdb.collection("staffReq").doc(uid).delete().catch(()=>{})}
+  catch(e){flash("ماتمّش. اتأكد من النت ومن نشر ملف الـ Rules.");if(btn)btn.disabled=false}
+  STAFFREQS=STAFFREQS.filter(x=>x.uid!==uid||act==="no"&&false);render()}
+function sreqBar(){if(STAFF||!isOwner()||!STAFFREQS.length)return "";const ago=t=>{const m=Math.round((Date.now()-(Date.parse(t)||Date.now()))/6e4);return m<1?"دلوقتي":m<60?"من "+arn(m)+" دقيقة":"من "+arn(Math.round(m/60))+" ساعة"};
+  return `<div class="sreq">${STAFFREQS.map(r=>`<div class="sreq-c"><span class="sreq-i">📱</span><div class="sreq-t"><b>${esc(r.name||"السكرتير")} عايز يدخل من جهاز جديد</b><small>${esc(r.dev||"")} · ${ago(r.at)} · لو مش هو، ارفض</small></div>
+    <div class="sreq-a"><button class="btn sm" onclick="sreqAct('${esc(r.uid)}','ok',this)">وافق</button><button class="btn ghost sm" onclick="sreqAct('${esc(r.uid)}','no',this)">ارفض</button><button class="btn delbtn sm" onclick="sreqAct('${esc(r.uid)}','block',this)">مش هو! اقفل حسابه</button></div></div>`).join("")}</div>`}
+/* old secretaries (code boxes that held the center's own code): delete the boxes once, ask the owner for new codes */
+function staffMigrate(){if(STAFF||!isOwner()||!cuser||cuser.email!==BRAND.account)return;const M=staffMap();let ch=false;
+  for(const sid in M){const v=M[sid];if(v.cid||v.code||v.h){if(v.cid)staffUnpublish(v.cid);delete v.cid;delete v.code;delete v.h;if(!v.uid)v.legacy=true;ch=true}}
+  const P=S.settings.pins||{};if(P.staff||P.staffPin){delete P.staff;delete P.staffPin;ch=true}
+  if(S.settings.devices||S.settings.revoked){delete S.settings.devices;delete S.settings.revoked;ch=true}
+  if(ch){skipUndo=true;save()}}
 function staffWa(sid){const v=staffMap()[sid];if(!v)return "#";const n=waNumber(v.phone);return "https://wa.me/"+(n||"")+"?text="+encodeURIComponent(staffText(sid))}
-function staffText(sid){const v=staffMap()[sid];if(!v)return "";return `أهلًا يا ${v.name}\nده برنامج ${BRAND.name}.\n\n١- افتح اللينك ده:\n${appLink()}\n٢- على الآيفون: من Safari دوس زرار المشاركة ← «إضافة إلى الشاشة الرئيسية»، وافتح البرنامج من الأيقونة.\n٣- دوس «السكرتير» واكتب كودك: ${v.code}\n\nالكود ده بتاعك انت بس، ماتديهوش لحد.`}
-function staffDevices(sid){const D=S.settings.devices||{};return Object.keys(D).filter(id=>D[id].sid===sid)}
-function removeStaff(sid,btn){twice("rs"+sid,()=>{const v=staffMap()[sid];if(!v)return;S.settings.revoked=S.settings.revoked||{};const D=S.settings.devices||{};
-  staffDevices(sid).forEach(id=>{if(id!==deviceId())S.settings.revoked[id]={name:v.name,at:new Date().toISOString()};delete D[id]});staffUnpublish(v.cid);delete staffMap()[sid];if(staffDone===sid)staffDone=null;save();flash("«"+v.name+"» اتشال من البرنامج ✓");render()},btn)}
-function staffList(dev){const M=staffMap(),D=S.settings.devices||{},me=deviceId(),fmt=d=>{try{return new Date(d).toLocaleDateString("ar-EG",{day:"numeric",month:"long"})}catch(e){return ""}};
-  const loose=Object.keys(D).filter(id=>!D[id].sid||!M[D[id].sid]),P=S.settings.pins||{};
-  const rows=Object.entries(M).map(([sid,v])=>{const ds=staffDevices(sid),on=ds.length;return `<div class="rrow srow2"><span class="sava ${on?"on":""}">${ic("user")}</span><span class="m"><b>${esc(v.name)}${ds.includes(me)?' <span class="pill">الموبايل ده</span>':""}</b><span class="sub">${v.phone?`<span dir="ltr" class="num">${esc(v.phone)}</span> · `:""}الكود <b class="num" dir="ltr">${showCode[sid]?esc(v.code):"••••••"}</b> <button class="linkbtn" onclick="showCode['${sid}']=!showCode['${sid}'];render()">${showCode[sid]?"إخفاء":"إظهار"}</button></span></span><a class="iconlnk" href="${staffWa(sid)}" target="_blank" rel="noopener" aria-label="ابعتله الكود على الواتساب">${ic("chat")}</a><button class="x" onclick="removeStaff('${sid}',this)">إخراج</button></div>`}).join("")
-   +loose.map(id=>`<div class="rrow"><span class="sava on">${ic("user")}</span><span class="m"><b>${esc(D[id].name)}${id===me?' <span class="pill">الموبايل ده</span>':""}</b><span class="sub">موبايل سكرتير من ${fmt(D[id].at)}</span></span>${id===me?"":`<button class="x" onclick="kickDevice('${id}',this)">إخراج</button>`}</div>`).join("");
-  return `${rows?`<div class="rtable">${rows}</div>`:`<div class="sub">مفيش سكرتارية لسه.</div>`}
-  ${P.staff?`<div class="kv"><span class="sub">رقم السكرتير القديم (المشترك)</span><button class="x" onclick="removeStaffPin(this)">شيله</button></div>`:""}
-  ${Object.keys(M).length||loose.length||P.staff?`<button class="btn delbtn" onclick="fireStaff(this)">${dev?"اخرج كل السكرتارية":"كل السكرتارية مشيوا: اشيلهم من البرنامج"}</button>`:""}`}
+function staffText(sid){const v=staffMap()[sid];if(!v)return "";return `أهلًا يا ${v.name}\nده برنامج ${BRAND.name}.\n\n١- افتح اللينك ده:\n${appLink()}\n٢- على الآيفون: من Safari دوس زرار المشاركة ← «إضافة إلى الشاشة الرئيسية»، وافتح البرنامج من الأيقونة.\n٣- دوس «السكرتير» واكتب كودك: ${staffCode(sid)}\n٤- أول مرة من أي موبايل، استنى لحد ما صاحب السنتر يوافق.\n\nالكود ده بتاعك انت بس، ماتديهوش لحد.`}
+function staffDevices(sid){return []}
+function removeStaff(sid,btn){twice("rs"+sid,()=>{const v=staffMap()[sid];if(!v)return;staffDropDocs(v.uid);if(v.cid)staffUnpublish(v.cid);delete staffMap()[sid];delete newCodes[sid];if(staffDone===sid)staffDone=null;save();flash("«"+v.name+"» اتشال، ومش هيقدر يدخل تاني ✓");render()},btn)}
+function staffList(dev){const M=staffMap(),P=S.settings.pins||{};
+  const rows=Object.entries(M).map(([sid,v])=>{const code=staffCode(sid),nd=v.uid?(STAFFDEVS[v.uid]||0):0;
+    return `<div class="rrow srow2"><span class="sava ${nd?"on":""}">${ic("user")}</span><span class="m"><b>${esc(v.name)}</b>
+    <span class="sub">${v.phone?`<span dir="ltr" class="num">${esc(v.phone)}</span> · `:""}${v.legacy||!v.uid?`<span class="badc">محتاج كود جديد</span>`:`الكود <b class="num" dir="ltr">${showCode[sid]?esc(code||"…"):"••••••"}</b> <button class="linkbtn" onclick="showCode['${sid}']=!showCode['${sid}'];render()">${showCode[sid]?"إخفاء":"إظهار"}</button> · ${nd?"شغال على "+arn(nd)+(nd===1?" جهاز":" أجهزة"):"لسه مادخلش"}`}</span>
+    <span class="sacts">${v.uid&&!v.legacy?`<a class="btn ghost sm" href="${staffWa(sid)}" target="_blank" rel="noopener">ابعتله</a>`:""}<button class="btn ghost sm" onclick="staffNewCode('${sid}',this)">${v.legacy||!v.uid?"اعمله كود جديد":"كود جديد"}</button>${nd?`<button class="btn ghost sm" onclick="staffKickAll('${sid}',this)">طلّعه من كل الأجهزة</button>`:""}<button class="x" onclick="removeStaff('${sid}',this)">شيله</button></span></span></div>`}).join("");
+  const legacy=Object.values(M).some(v=>v.legacy||!v.uid);
+  return `${legacy?`<div class="note">عشان الأمان، دخول السكرتارية اتغيّر: كل سكرتير محتاج كود جديد أقوى، وأول دخول من أي موبايل محتاج موافقتك. دوس «اعمله كود جديد» وابعتهوله.</div>`:""}
+  ${rows?`<div class="rtable">${rows}</div>`:`<div class="sub">مفيش سكرتارية لسه.</div>`}
+  ${Object.keys(M).length?`<button class="btn delbtn" onclick="fireStaff(this)">${dev?"اخرج كل السكرتارية":"كل السكرتارية مشيوا: اشيلهم من البرنامج"}</button>`:""}`}
 function staffCard(){const P=S.settings.pins;
   const v=staffDone&&staffMap()[staffDone];
   return `<section class="form staffcard"><h2>${ic("teachers")} السكرتارية</h2>
   <button class="btn ghost" onclick="slogTab=slogNew().length?'new':'done';go({view:'slog'})">${ic("receipt")} الدفع اللي السكرتارية سجّلته${slogNew().length?` <span class="tbadge num">${arn(slogNew().length)}</span>`:""}</button>
   ${staffList(false)}
-  ${staffDevice()?`<div class="kv"><span class="sub">الموبايل ده متسجّل موبايل سكرتير</span><button class="btn ghost sm" onclick="toggleStaffDevice()">خلّيه موبايل عادي</button></div>`:""}
-  ${v?`<div class="okbox"><b>✓ ${esc(v.name)} اتضاف</b><div class="sub">كوده <b class="num" dir="ltr">${esc(v.code)}</b>. ابعتله اللينك والكود على الواتساب بدوسة واحدة.</div>
+  ${v?`<div class="okbox"><b>✓ كود ${esc(v.name)} جاهز</b><div class="sub">كوده <b class="num" dir="ltr">${esc(staffCode(staffDone))}</b>. ابعتله اللينك والكود على الواتساب بدوسة واحدة. أول ما يدخل من موبايله هيوصلك طلب توافق عليه.</div>
     <div class="bar"><a class="btn wa" href="${staffWa(staffDone)}" target="_blank" rel="noopener">${ic("chat")} ابعتله على الواتساب</a><button class="btn ghost" onclick="try{navigator.clipboard.writeText(staffText(staffDone))}catch(e){};this.textContent='اتنسخت ✓'">نسخ</button><button class="btn ghost" onclick="staffDone=null;render()">تمام</button></div></div>`
   :addStaff?`<form onsubmit="saveStaff(event)" class="pinform staffform"><b>بطاقة سكرتير جديد</b>
-    <label class="lbl" for="sfName">الاسم</label><input id="sfName" placeholder="مثلًا: أحمد" required>
-    <label class="lbl" for="sfPhone">رقم الواتساب بتاعه</label><input id="sfPhone" inputmode="tel" placeholder="01xxxxxxxxx" dir="ltr">
-    <label class="lbl" for="sfCode">الكود اللي هيدخل بيه</label><div class="bar"><input id="sfCode" inputmode="numeric" maxlength="8" value="${staffRand()}" dir="ltr" required style="flex:1;letter-spacing:.2em"><button type="button" class="btn ghost" onclick="document.getElementById('sfCode').value=staffRand()">غيّره</button></div>
-    ${actGet()?"":`<label class="lbl" for="sfAct">كود التفعيل بتاعك (مرة واحدة للتأكيد)</label><input id="sfAct" type="password" autocomplete="off" dir="ltr" required>`}
-    ${staffErr?`<div class="note">${esc(staffErr)}</div>`:""}<div class="bar"><button class="btn" id="sfGo">حفظ</button><button type="button" class="btn ghost" onclick="addStaff=false;staffErr='';render()">إلغاء</button></div></form>`
+    <label class="lbl" for="sfName">الاسم</label><input id="sfName" placeholder="مثلًا: أحمد" required value="${esc(staffDraft.name||"")}">
+    <label class="lbl" for="sfPhone">رقم الواتساب بتاعه</label><input id="sfPhone" inputmode="tel" placeholder="01xxxxxxxxx" dir="ltr" value="${esc(staffDraft.phone||"")}">
+    <label class="lbl" for="sfCode">الكود اللي هيدخل بيه (١٠ حروف وأرقام على الأقل)</label><div class="bar"><input id="sfCode" autocapitalize="characters" spellcheck="false" maxlength="24" value="${esc(staffDraft.code||randCode())}" dir="ltr" required style="flex:1;letter-spacing:.12em" oninput="const w=document.getElementById('sfWeak');if(w)w.hidden=codeStrong(this.value)"><button type="button" class="btn ghost" onclick="document.getElementById('sfCode').value=randCode();document.getElementById('sfWeak').hidden=true">🎲 عشوائي</button></div>
+    <div class="sub" id="sfWeak"${!staffDraft.code||codeStrong(staffDraft.code)?" hidden":""} style="color:var(--bad)">الكود ده ضعيف وسهل يتخمّن. خليه ١٠ على الأقل فيه حروف وأرقام، أو دوس 🎲.</div>
+    ${staffErr?`<div class="note">${esc(staffErr)}</div>`:""}<div class="bar"><button class="btn" id="sfGo">حفظ</button><button type="button" class="btn ghost" onclick="addStaff=false;staffErr='';staffDraft={};render()">إلغاء</button></div></form>`
   :`<button class="btn" onclick="addStaff=true;staffErr='';render()">+ إضافة سكرتير</button>`}
   ${staffGuide()}</section>`}
 function staffGuide(){const st=(t,h,d)=>`<div class="gstep"><b class="num">${t}</b><div><h4>${h}</h4><span class="sub">${d}</span></div></div>`;
@@ -965,23 +1037,19 @@ function staffGuide(){const st=(t,h,d)=>`<div class="gstep"><b class="num">${t}<
   ${st("١","دوس «+ إضافة سكرتير»","اكتب اسمه ورقم الواتساب بتاعه. البرنامج بيعمله كود لوحده، وتقدر تغيّره.")}
   ${st("٢","ابعتله على الواتساب","دوسة واحدة بتفتح شاته والرسالة جاهزة فيها اللينك وكوده. كود التفعيل بتاعك مش بيوصله.")}
   ${st("٣","هو يدخل","يفتح البرنامج، ويدوس «السكرتير»، ويكتب كوده. البرنامج بيفتح عنده على وضع السكرتير على طول، وكل ما يقفل يفتح بنفس الكود.")}
-  ${st("٤","كل واحد بكوده","مفيش حد بيدخل على موبايل حد تاني من جوه. اللي عايز يدخل من أي موبايل يعمل «تسجيل الخروج» ويدخل من صفحة الدخول بالكود بتاعه.")}
-  ${st("٥","لو السكرتير مشي","دوس «إخراج» قصاد اسمه. كوده بيتلغي، والبرنامج والداتا بيتمسحوا من موبايله أول ما يتصل بالنت. ولو كلهم مشيوا دوس «كل السكرتارية مشيوا».")}
-  ${st("٦","كوده بيشتغل على موبايل واحد","لو فتح بكوده من موبايل جديد، القديم بيخرج لوحده. ولو حسيت إن الكود اتعرف، اشيله وضيفه تاني بكود جديد.")}
+  ${st("٤","توافق على كل موبايل جديد","أول دخول من أي موبايل بيوصلك طلب فوق: «فلان عايز يدخل من جهاز جديد». وافق لو هو، ولو مش هو دوس «مش هو! اقفل حسابه».")}
+  ${st("٥","لو حسيت إن الكود اتعرف","دوس «كود جديد» قصاد اسمه: القديم بيتلغي على طول. أو «طلّعه من كل الأجهزة» وكل دخول جديد هيحتاج موافقتك.")}
+  ${st("٦","لو السكرتير مشي","دوس «شيله» قصاد اسمه. حسابه بيتقفل، والبرنامج بيقفل عنده أول ما يتصل بالنت.")}
   </div></details>`}
 function appLink(){return location.origin+location.pathname}
 var staffMode=false,pendStaff=null,staffTries=0,staffWait=0;
 async function staffLogin(e){e.preventDefault();authErr="";if(staffWait>Date.now()){authErr="استنى دقيقة وجرّب تاني.";render();return}
-  const code=(document.getElementById("sfIn").value||"").trim(),btn=document.getElementById("sfBtn");
-  if(!/^\d{6,8}$/.test(code)){authErr="الكود من ٦ لـ ٨ أرقام.";render();return}
+  const raw=(document.getElementById("sfIn").value||"").trim(),code=codeNorm(raw),btn=document.getElementById("sfBtn");
+  if(code.length<6){authErr="اكتب الكود كامل زي ما صاحب السنتر بعتهولك.";render();return}
   if(btn){btn.disabled=true;btn.textContent="جاري الدخول…"}
-  try{if(!fsdb)throw {code:"network"};const id=await staffDocId(code),sn=await fsdb.collection("staffcodes").doc(id).get();
-    if(!sn.exists)throw {code:"bad-staff"};const d=sn.data(),k=await staffKey(code,id);let o;
-    try{o=JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:ub64(d.iv)},k,ub64(d.ct))))}catch(x){throw {code:"bad-staff"}}
-    try{localStorage.removeItem("center-revoked");localStorage.setItem("center-staffDevice","1")}catch(x){}
-    pendStaff=o.s;staffTries=0;setLoginGen();await fauth.signInWithEmailAndPassword(BRAND.account,o.c)}
-  catch(err){pendStaff=null;const c=err&&err.code||"";if(c==="bad-staff"||/invalid|wrong|credential/.test(c)){staffTries++;if(staffTries>=5){staffTries=0;staffWait=Date.now()+60000}}
-    authErr=c==="bad-staff"?"الكود غلط. اتأكد منه من صاحب السنتر.":/invalid|wrong|credential/.test(c)?"الكود ده محتاج يتجدّد. كلّم صاحب السنتر.":/network|unavailable/.test(c)?"مفيش نت. اتأكد من الاتصال وجرّب تاني.":/permission/.test(c)?"دخول السكرتير لسه مش متفعّل. كلّم صاحب السنتر.":"حصل خطأ: "+c;render()}}
+  try{if(!fauth)throw {code:"network"};try{localStorage.removeItem("center-staffDevice")}catch(x){}setLoginGen();await fauth.signInWithEmailAndPassword(staffEmail(code),code);staffTries=0}
+  catch(err){const c=err&&err.code||"";if(/invalid|wrong|credential|not-found/.test(c)){staffTries++;if(staffTries>=5){staffTries=0;staffWait=Date.now()+60000}}
+    authErr=/invalid|wrong|credential|not-found|user-disabled/.test(c)?"الكود غلط أو اتلغى. اتأكد منه من صاحب السنتر.":/network|unavailable/.test(c)?"مفيش نت. اتأكد من الاتصال وجرّب تاني.":/too-many/.test(c)?"محاولات كتير. استنى شوية وجرّب تاني.":"ماقدرتش أدخل. جرّب تاني.";render()}}
 function useStaff(){if(!pendStaff)return;const sid=pendStaff;pendStaff=null;const v=(S.settings.staff||{})[sid],me=deviceId();
   if(!v){wipeDevice();return}S.settings.devices=S.settings.devices||{};S.settings.revoked=S.settings.revoked||{};
   staffDevices(sid).forEach(id=>{if(id!==me){S.settings.revoked[id]={name:v.name,at:new Date().toISOString()};delete S.settings.devices[id]}});
@@ -1001,8 +1069,8 @@ async function kickSelf(){if(kicking)return;kicking=true;const me=deviceId();
 function viewRevoked(){return `<div class="lockscr"><img src="${LOGO}" alt="${esc(BRAND.name)}" class="lklogo"><section class="form"><h2>الموبايل ده اتشال من البرنامج</h2><div class="sub">صاحب السنتر شال الموبايل ده، والداتا اتمسحت منه.</div><button class="btn ghost" onclick="try{localStorage.removeItem('center-revoked')}catch(e){};authChoice='';authErr='';render()">رجوع لصفحة الدخول</button></section></div>`}
 function ownerPin(){const p=S.settings&&S.settings.pins;return !!(p&&p.owner)}
 function lockHere(){const p=S.settings&&S.settings.pins;if(!p||!p.owner)return false;if(!p.on)return true;return !!p.on[deviceId()]}
-function pinsOn(){return lockHere()||staffDevice()}
-function isOwner(){return staffDevice()?ROLE==="owner":(!lockHere()||ROLE==="owner")}
+function pinsOn(){return !STAFF&&lockHere()}
+function isOwner(){return STAFF?false:(!lockHere()||ROLE==="owner")}
 function needPin(){return pinsOn()&&!ROLE}
 function simpleHash(str){let h1=0x811c9dc5,h2=0x1234567;for(let i=0;i<str.length;i++){const c=str.charCodeAt(i);h1=Math.imul(h1^c,16777619)>>>0;h2=Math.imul(h2^c,2654435761)>>>0}return "f"+h1.toString(16)+h2.toString(16)}
 async function hashPin(pin){const str="ctr|"+BRAND.file+"|"+pin;try{if(window.crypto&&crypto.subtle){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(str));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}}catch(e){}return simpleHash(str)}
@@ -1017,15 +1085,14 @@ function viewLock(){const wait=pinWait>Date.now();
     <button class="btn big"${wait?" disabled":""}>دخول</button>
     ${staffDevice()?"":`<button type="button" class="linkbtn" onclick="pinForgot=true;pinErr='';render()">نسيت الرقم السري؟</button>`}</form>`}</div>`}
 async function unlockPin(e){e.preventDefault();if(pinWait>Date.now())return;const v=(document.getElementById("pinIn")||{}).value||"";const h=await hashPin(v.trim()),P=S.settings.pins||{};
-  const sm=Object.entries(S.settings.staff||{}).find(([,x])=>x.h===h);
-  if(h===P.owner&&!staffDevice()){ROLE="owner";if(!staffDevice()){P.on=P.on||{};if(!P.on[deviceId()]){P.on[deviceId()]=true;skipUndo=true;save()}}}else if(sm){pendStaff=sm[0];useStaff();pinErr="";pinTries=0;render();return}else if(P.staff&&h===P.staff){ROLE="staff";const me=deviceId();S.settings.devices=S.settings.devices||{};if(!S.settings.devices[me]){S.settings.devices[me]={name:"موبايل سكرتير",at:new Date().toISOString()};skipUndo=true;save()}try{localStorage.setItem("center-staffDevice","1")}catch(x){}}else{pinTries++;if(pinTries>=5){pinTries=0;pinWait=Date.now()+30000;pinErr="غلط ٥ مرات. استنى ٣٠ ثانية وجرّب تاني.";setTimeout(render,30500)}else pinErr="الرقم السري غلط.";render();return}
+  if(h===P.owner){ROLE="owner";P.on=P.on||{};if(!P.on[deviceId()]){P.on[deviceId()]=true;skipUndo=true;save()}}else{pinTries++;if(pinTries>=5){pinTries=0;pinWait=Date.now()+30000;pinErr="غلط ٥ مرات. استنى ٣٠ ثانية وجرّب تاني.";setTimeout(render,30500)}else pinErr="الرقم السري غلط.";render();return}
   pinErr="";pinTries=0;nav={view:"home"};render()}
 async function forgotPin(e){e.preventDefault();if(staffDevice()){pinForgot=false;render();return}const code=(document.getElementById("fgCode")||{}).value.trim();pinErr="";
   try{if(!CLOUD||!fauth)throw {code:"local"};await fauth.signInWithEmailAndPassword(BRAND.account,code);pendCode=code;
     delete S.settings.pins;ROLE="owner";pinForgot=false;save();flash("الرقم السري اتشال. اعمل رقم جديد من الإعدادات.");nav={view:"settings"};render()}
   catch(err){pinErr=err&&err.code==="local"?"كلّم الدعم الفني: "+DEV.phone:"كود التفعيل غلط.";render()}}
 var logoTaps=0,logoTapT=0;function logoTap(){if(!staffDevice())return;const n=Date.now();logoTaps=n-logoTapT<1500?logoTaps+1:1;logoTapT=n;if(logoTaps>=5){logoTaps=0;lockNow()}}
-function lockNow(){if(!pinsOn())return;ROLE=null;pinErr="";nav={view:"home"};render()}
+function lockNow(){if(STAFF||!pinsOn())return;ROLE=null;pinErr="";nav={view:"home"};render()}
 document.addEventListener("visibilitychange",()=>{if(document.hidden){lastHidden=Date.now();if(devMode){devLock();render()}}else if(pinsOn()&&ROLE&&lastHidden&&Date.now()-lastHidden>((staffDevice()&&ROLE==="owner")?60000:5*60000)){ROLE=null;nav={view:"home"};render()}});
 setInterval(()=>{if(staffDevice()&&pinsOn()&&ROLE==="owner"&&!document.hidden&&lastAct&&Date.now()-lastAct>3*60000){ROLE=null;nav={view:"home"};render()}},20000);
 var lastAct=Date.now();["pointerdown","keydown"].forEach(ev=>document.addEventListener(ev,()=>{lastAct=Date.now()},{passive:true}));
@@ -1185,7 +1252,7 @@ function render(){
   if(!isOwner()&&["settings","templates","report","editTeacher","addTeacher"].includes(v)){nav={view:"home"};v="home"}
   const vkey=v+"|"+(nav.tid||"")+(nav.gid||"")+(nav.key||""),anim=vkey!==lastViewKey;lastViewKey=vkey;
   el.innerHTML = `<div class="view${anim?" enter":""}" data-v="${v}">`+(v==="teachers"?viewTeachers(): v==="students"?viewStudents(): v==="templates"?viewTemplates(): v==="report"?viewReport(): v==="teacher"?viewTeacher(): v==="group"?viewGroup(): v==="addTeacher"?viewAddTeacher(): v==="addGroup"?viewAddGroup(): v==="student"?viewStudent(): v==="editTeacher"?viewEditTeacher(): v==="editGroup"?viewEditGroup(): v==="unpaid"?viewUnpaid(): v==="settings"?viewSettings(): v==="slog"?viewSlog(): viewHome())+`</div>`;
-  el.insertAdjacentHTML("beforeend",flashBar()+undoBar()+receiptModal()+fab()+navBar());try{document.body.classList.add("hasnav")}catch(e){}
+  el.insertAdjacentHTML("beforeend",flashBar()+undoBar()+receiptModal()+fab()+navBar()+sreqBar());try{document.body.classList.add("hasnav")}catch(e){}
   if(offline) el.insertAdjacentHTML("afterbegin",'<div class="note">'+(CLOUD?'مفيش اتصال دلوقتي — التعديلات محفوظة على الجهاز وهتترفع أول ما النت يرجع.':'مش قادر أحفظ دلوقتي.')+'</div>');
   el.insertAdjacentHTML("beforeend",credit());
   if(anim&&!REDUCED)el.querySelectorAll("[data-count]").forEach(countUp);
@@ -1312,7 +1379,7 @@ function joinPub(){const c=joinCfg();if(!c||!cuser)return null;
   return o}
 async function joinPublish(){const c=joinCfg();if(!c||!fsdb||!cuser)return;try{const o=joinPub();await fsdb.collection("joins").doc(c.code).set(o);joinSig=JSON.stringify(o)}catch(e){flash("ماقدرتش أحدّث اللينك. اتأكد من النت ومن قواعد Firebase.")}}
 /* keep the public "تم التسجيل" card up to date: after any change in teachers/subjects/phone, republish (only when something really changed) */
-function joinSyncSoon(){if(!(CLOUD&&cuser&&fsdb)||!joinCfg())return;clearTimeout(joinTimer);
+function joinSyncSoon(){if(!(CLOUD&&cuser&&fsdb)||STAFF||!joinCfg())return;clearTimeout(joinTimer);
   joinTimer=setTimeout(async()=>{try{if(!isOwner()||!joinCfg()||!fsdb||!cuser)return;const o=joinPub();if(!o)return;const sig=JSON.stringify(o);if(sig===joinSig)return;await fsdb.collection("joins").doc(joinCfg().code).set(o);joinSig=sig}catch(e){}},2500)}
 function joinPhone(v){const c=joinCfg();if(!c)return;c.phone=String(v||"").replace(/[^\d+]/g,"").slice(0,16);save();flash("اتحفظ ✓");render()}
 const JLINKS=[["fb","فيسبوك","https://facebook.com/..."],["ig","إنستجرام","https://instagram.com/..."],["tt","تيك توك","https://tiktok.com/@..."],["yt","يوتيوب","https://youtube.com/..."],["wa","جروب / قناة واتساب","https://chat.whatsapp.com/..."],["map","لوكيشن السنتر","https://maps.app.goo.gl/..."]];
@@ -1330,7 +1397,7 @@ async function joinToggle(){const c=joinCfg();if(!c)return;c.open=!c.open;save()
 function joinRenew(btn){twice("jr",async()=>{const c=joinCfg();if(!c)return;const old=c.code;c.code=joinCode();save();try{await fsdb.collection("joins").doc(old).delete()}catch(e){}await joinPublish();flash("اتعمل لينك جديد، والقديم بطل");render()},btn)}
 async function joinYear(k){const c=joinCfg();if(!c)return;const ys=new Set(c.years||[]);ys.has(k)?ys.delete(k):ys.add(k);if(!ys.size)return;c.years=YEARS.map(y=>y[0]).filter(x=>ys.has(x));save();await joinPublish();render()}
 function stuByPhone(d){if(!d)return null;for(const t of S.teachers)for(const g of (t.groups||[]))for(const s of activeSt(g))if(digits(s.mobile)===d||digits(s.phone)===d&&digits(s.mobile)===""){return {t,g,s}}return null}
-function reqCol(){return fsdb.collection("centers").doc(cuser.uid).collection("requests")}
+function reqCol(){return fsdb.collection("centers").doc(cid()).collection("requests")}
 async function assignReq(rid){const r=REQS.find(x=>x.id===rid),sel=document.getElementById("rg-"+rid);if(!r||!sel||!sel.value)return;const f=findGroup(sel.value);if(!f)return;
   const{t,g}=f;g.students=g.students||[];if(g.students.some(s=>!s.left&&digits(s.mobile)===r.mobile&&r.mobile)){flash("الطالب ده موجود في المجموعة دي بالفعل");return}
   const j=isLocked(t.id,curMonth())?addMonth(curMonth(),1):curMonth();g.students.push({id:uid(),name:r.name,mobile:r.mobile,phone:r.phone,joined:j});save();
@@ -1562,7 +1629,7 @@ function backupBox(){
     <div class="bar"><button class="btn" onclick="prepareBackup()">عمل صورة النسخة</button>
     <label class="btn ghost" for="restoreFile">استرجاع</label>
     <input type="file" id="restoreFile" accept="image/png,image/*,.json,application/json" hidden onchange="restoreBackup(this)">
-    <button class="btn ghost" onclick="copyBackup()">نسخ كنص</button><button class="btn ghost" onclick="showPaste()">استرجاع من نص</button></div>
+    <button class="btn ghost" onclick="copyBackup()">نسخ كنص</button><button class="btn ghost" onclick="saveBackupFile()">احفظها كملف</button><button class="btn ghost" onclick="showPaste()">استرجاع من نص</button></div>
     <div id="pasteBox" hidden><textarea id="pasteText" placeholder="الصق النص هنا" style="width:100%;height:90px;font:12px monospace;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;direction:ltr"></textarea>
       <button class="btn" onclick="restoreFromText()">استرجاع</button></div>
     ${backupMsg?`<div class="note">${esc(backupMsg)}</div>`:""}
@@ -1576,7 +1643,7 @@ function backupBox(){
 }
 async function gz(str){try{if(!window.CompressionStream)return null;const cs=new Blob([str]).stream().pipeThrough(new CompressionStream("gzip"));return b64(await new Response(cs).arrayBuffer())}catch(e){return null}}
 async function gunz(b){const ds=new Blob([ub64(b)]).stream().pipeThrough(new DecompressionStream("gzip"));return await new Response(ds).text()}
-function bkCol(){return fsdb.collection("centers").doc(cuser.uid).collection("backups")}
+function bkCol(){return fsdb.collection("centers").doc(cid()).collection("backups")}
 /* daily automatic backup: taken at the first opening of each day = the data as it was at the end of the previous day.
    Write-once (Firestore rules forbid update/delete), and it refuses to save data that looks broken. */
 function bkStats(x){let st=0,pays=0;(x.teachers||[]).forEach(t=>(t.groups||[]).forEach(g=>{st+=(g.students||[]).length}));for(const k in (x.payments||{}))pays+=Object.keys(x.payments[k]||{}).length;return{teachers:(x.teachers||[]).length,students:st,pays}}
@@ -1974,6 +2041,7 @@ async function copyBackup(){
   try{await navigator.clipboard.writeText(txt);markBackup();backupMsg="اتنسخت. الصقها في رسالة واتساب لنفسك.";render()}
   catch(e){backupMsg="النسخ التلقائي مش شغال — حدد النص اللي تحت وانسخه.";render();const t=document.getElementById("backupText");t.hidden=false;t.value=txt;t.select()}
 }
+function saveBackupFile(){try{const txt=backupJSON(true),a=document.createElement("a"),d=new Date();a.href=URL.createObjectURL(new Blob([txt],{type:"application/json"}));a.download=(BRAND.file||"center")+"-backup-"+d.toISOString().slice(0,10)+".json";document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);markBackup();backupMsg="اتحفظت كملف. ترجّعها من «استرجاع» واختار الملف.";render()}catch(e){backupMsg="ماقدرتش أحفظ الملف. جرّب «نسخ كنص».";render()}}
 function showPaste(){const b=document.getElementById("pasteBox");if(b){b.hidden=false;document.getElementById("pasteText").focus()}}
 function restoreFromText(){const t=(document.getElementById("pasteText")||{}).value||"";try{offerRestore(JSON.parse(t.trim()))}catch(e){backupMsg="النص ده مش نسخة احتياطية سليمة. اتأكد إنك لصقت النص كله.";render()}}
 var restorePending=null,restoreWhen="",sgOpen=new Set();
