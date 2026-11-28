@@ -508,6 +508,9 @@ body{background:radial-gradient(900px 380px at 50% -200px,rgba(216,56,63,.10),tr
 .sreq-i{font-size:26px}.sreq-t{flex:1;min-width:180px;display:grid;gap:2px}.sreq-t b{font-size:15px}.sreq-t small{color:var(--muted);font-size:12px}
 .sreq-a{display:flex;gap:6px;flex-wrap:wrap;width:100%}.sreq-a .btn{flex:1}
 .srow2 .sacts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
+.pill.freep{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}.st-fr{color:var(--muted)}
+.freerow{align-items:center;gap:10px;margin:6px 0 10px}.csform{margin:6px 0 12px}.csform select{flex:1;min-width:0}
+.leavebox .bar{flex-wrap:wrap}.gonec{display:flex;flex-direction:column;gap:8px}.gonec .bar{flex-wrap:wrap;gap:6px}
 .slogbar{display:flex;align-items:center;gap:12px;width:100%;text-align:right;padding:14px 16px;border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));background:color-mix(in srgb,var(--accent) 9%,var(--card));color:var(--ink);font:inherit;cursor:pointer;margin-bottom:14px}
 .slogbar .sl-ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent);flex:none}.slogbar .sl-ic svg{width:22px;height:22px}
 .slogbar .sl-t{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}.slogbar .sl-n{min-width:28px;height:28px;padding:0 8px;border-radius:99px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:800;font-size:.85rem}
@@ -622,6 +625,13 @@ function joinedErr(t,g,x,nj){const old=x.joined||"",pre=g.id+"|",lk=Object.keys(
 function inMonth(s,m){return (!s.left||m<s.left)&&(!s.joined||m>=s.joined)}
 function activeSt(g){return (g.students||[]).filter(isActive)}
 function monthSt(g,m){return (g.students||[]).filter(s=>inMonth(s,m))}
+/* 4.4: «معفي» students never pay: not in «مادفعش», no reminders, no center cut */
+function isFree(s){return !!(s&&s.free)}
+function payable(g,m){return monthSt(g,m).filter(x=>!x.free)}
+/* 4.4: the center's share from ONE student (partial payers, discounts). Locked months use the snapshot taken when they were locked. */
+function stuShare(t,g,x,m){const L=m&&t&&getLock(t.id,m);if(L)return (L.sx&&L.sx[g.id+"|"+x.id])||null;const c=x&&x.cshare;return c&&(c.type==="fixed"||c.type==="pct"||c.type==="none")?c:null}
+function stuCut(c,amt){if(!amt||amt<=0)return 0;if(c.type==="none")return 0;const v=+c.value||0;return Math.max(0,Math.min(amt,c.type==="fixed"?Math.round(v):Math.round(amt*v/100)))}
+function stuShareTxt(c){return !c?"":c.type==="none"?"السنتر مش بياخد منه":c.type==="fixed"?"السنتر ياخد منه "+arn(+c.value||0)+" ج":"السنتر ياخد "+arn(+c.value||0)+"٪ من اللي دفعه"}
 function wasBefore(g,x,m0){if(x.joined)return x.joined<m0;const pre=g.id+"|";return Object.keys(S.payments).some(k=>k.startsWith(pre)&&k.slice(pre.length)<m0&&hasPayV((S.payments[k]||{})[x.id]))}
 function isPaidV(v){return v===true||typeof v==="number"}
 function isPartV(v){return !!v&&typeof v==="object"&&+v.part>0}
@@ -637,9 +647,11 @@ function setPart(g,s,m,amt){const t=teacherOf(g);if(t&&isLocked(t.id,m)){flash("
   if(amt<=0)delete S.payments[k][s.id];else if(amt>=feeOf(g,s))S.payments[k][s.id]=amt;else S.payments[k][s.id]={part:amt};return true}
 function feeOf(g,s){return (s&&s.fee!==undefined&&s.fee!==null&&s.fee!=="")?(+s.fee||0):(+g.fee||0)}
 function hasCustomFee(s){return s&&s.fee!==undefined&&s.fee!==null&&s.fee!==""}
-function teacherMonth(t,m){const subs=subjectsOf(t).map(sub=>({sub,stu:0,paid:0,part:0,units:0,collected:0,center:0}));
-  (t.groups||[]).forEach(g=>{const r=subs.find(q=>q.sub.id===g.subjectId)||subs[0];monthSt(g,m).forEach(x=>{r.stu++;if(isPaid(g,x,m))r.paid++;else if(isPart(g,x,m))r.part++;r.units+=payUnits(g,x,m);r.collected+=payAmt(g,x,m)})});
-  subs.forEach(r=>{r.center=cutWith(effShare(t,r.sub,m),r.units,r.collected)});
+function teacherMonth(t,m){const subs=subjectsOf(t).map(sub=>({sub,stu:0,paid:0,part:0,units:0,collected:0,center:0,gColl:0,own:0}));
+  (t.groups||[]).forEach(g=>{const r=subs.find(q=>q.sub.id===g.subjectId)||subs[0];if(!r)return;monthSt(g,m).forEach(x=>{const amt=payAmt(g,x,m),ov=stuShare(t,g,x,m);
+    if(!x.free||hasPay(g,x,m)){r.stu++;if(isPaid(g,x,m))r.paid++;else if(isPart(g,x,m))r.part++}r.collected+=amt;
+    if(ov)r.own+=stuCut(ov,amt);else{r.units+=payUnits(g,x,m);r.gColl+=amt}})});
+  subs.forEach(r=>{r.center=cutWith(effShare(t,r.sub,m),r.units,r.gColl)+r.own});
   const sum=k=>subs.reduce((a,r)=>a+r[k],0),collected=sum("collected"),center=sum("center");
   return{stu:sum("stu"),paid:sum("paid"),part:sum("part"),collected,center,teacher:collected-center,subs}}
 function saveShare(tid){const t=findTeacher(tid);if(!t||!subjectsOf(t).length)return;subjectsOf(t)[0].share={type:document.getElementById("shT").value,value:+document.getElementById("shV").value||0};teacherImg=null;save();render()}
@@ -661,7 +673,7 @@ function accountsBox(t){
    Leave it as null and the app works on the device only (local mode). */
 const FIREBASE_CONFIG={apiKey:"AIzaSyB3TNutgwCeZZ0mHygE0NI8yCh9m7x6-oI",authDomain:"jimswani-centers.firebaseapp.com",projectId:"jimswani-centers",storageBucket:"jimswani-centers.firebasestorage.app",messagingSenderId:"809726548597",appId:"1:809726548597:web:986921d2087b145af3f63c"};
 const CLOUD=!!(FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey);
-const APP_VERSION="4.3";
+const APP_VERSION="4.4";
 const DEV={name:"م/ محمد جمال",phone:"01069982196",title:"مهندس برمجيات · برامج حسابات السناتر",handle:"jimswani",fb:"https://www.facebook.com/profile.php?id=61588021126316",tiktok:"https://www.tiktok.com/@jimswani"};
 function devWa(){return "https://wa.me/2"+DEV.phone+"?text="+encodeURIComponent("السلام عليكم يا بشمهندس، شفت برنامج "+BRAND.name+" وعايز برنامج زيه لسنتري")}
 let db=null, ref=null, saveTimer=null, saving=false, pending=false, offline=false, dirty=false;
@@ -821,7 +833,7 @@ function viewAuth(){
     <button class="btn big" id="lgBtn">دخول</button><button type="button" class="btn ghost" onclick="authChoice='';authErr='';render()">رجوع</button>
     <div class="sub center">مش معاك الكود؟ الدعم الفني <span dir="ltr">${esc(DEV.phone)}</span></div></form></div>`;
 }
-["delTeacher","delTeacherHard","delGroup","delGroupHard","teacherLeft","teacherBack","saveSubject","delSubject","lockMonth","unlockMonth","payTeacher","saveTeacher","mergeTeachers","setGroupJoined","setStuJoined","saveFee","clearFee","transferSel","delStu","saveTpl","resetTpl","confirmRestore","addTeacher","saveShare","addExpense","delExpense","copyExpenses","toggleExp","prepareTeacher","prepareTeacherPDF","prepareCenterReport","prepareCenterPDF","prepareBackup","openUnpaidImg","kickDevice","fireStaff","saveStaff","removeStaff","allowDevice","saveStaffPin","removeStaffPin","toggleStaffDevice","saveStaffDevice","savePins","removePins"].forEach(n=>{const f=window[n];if(typeof f==="function")window[n]=function(...a){if(!isOwner()){flash("الحاجة دي لصاحب السنتر بس");render();return}return f.apply(this,a)}});
+["delTeacher","delTeacherHard","delGroup","delGroupHard","teacherLeft","teacherBack","saveSubject","delSubject","lockMonth","unlockMonth","payTeacher","saveTeacher","mergeTeachers","setGroupJoined","setStuJoined","saveFee","clearFee","transferSel","delStu","saveTpl","resetTpl","confirmRestore","addTeacher","saveShare","addExpense","delExpense","copyExpenses","toggleExp","prepareTeacher","prepareTeacherPDF","prepareCenterReport","prepareCenterPDF","prepareBackup","openUnpaidImg","kickDevice","fireStaff","saveStaff","removeStaff","allowDevice","saveStaffPin","removeStaffPin","toggleStaffDevice","saveStaffDevice","savePins","removePins","setFree","saveCShare","stuLeave","stuPurge","stuBack"].forEach(n=>{const f=window[n];if(typeof f==="function")window[n]=function(...a){if(!isOwner()){flash("الحاجة دي لصاحب السنتر بس");render();return}return f.apply(this,a)}});
 Promise.resolve().then(async()=>{ // runs after the whole script has loaded
   if(JOIN){render();startJoin();return}
   if(CLOUD){render();startCloud()}else{loadLocal();render()}
@@ -1265,7 +1277,7 @@ function buzz(){try{navigator.vibrate&&navigator.vibrate(12)}catch(e){}}
 function celebrate(msg){if(REDUCED){flash(msg);return}const box=document.createElement("div");box.className="confetti";const cols=["#E0262F","#FF5A5F","#3FCB7E","#F0B44C","#ffffff"];
   for(let i=0;i<46;i++){const p=document.createElement("i");p.style.left=(Math.random()*100)+"%";p.style.background=cols[i%cols.length];p.style.animationDelay=(Math.random()*.25)+"s";p.style.animationDuration=(0.9+Math.random()*.8)+"s";p.style.transform="rotate("+(Math.random()*360)+"deg)";box.appendChild(p)}
   document.body.appendChild(box);setTimeout(()=>box.remove(),2000);try{navigator.vibrate&&navigator.vibrate([20,40,20])}catch(e){}flash(msg)}
-function afterPay(g,x,m,was){if(was||!isPaid(g,x,m))return;buzz();popSid=x.id;const ml=monthSt(g,m);if(ml.length>1&&ml.every(y=>isPaid(g,y,m)))celebrate("🎉 مجموعة «"+g.name+"» كلها دفعت الشهر ده ✓")}
+function afterPay(g,x,m,was){if(was||!isPaid(g,x,m))return;buzz();popSid=x.id;const ml=payable(g,m);if(ml.length>1&&ml.every(y=>isPaid(g,y,m)))celebrate("🎉 مجموعة «"+g.name+"» كلها دفعت الشهر ده ✓")}
 
 function recoverBox(){const g=recoverOffer;if(!g||!isOwner())return "";const d=g.d,ns=d.teachers.reduce((a,t)=>a+(t.groups||[]).reduce((b,x)=>b+(x.students||[]).length,0),0);let when="";try{when=new Date(g.at).toLocaleString("ar-EG",{day:"numeric",month:"long",hour:"numeric",minute:"2-digit"})}catch(e){}
   return `<section class="form recover"><h2>${ic("backup")} رجّع البيانات من الموبايل ده</h2><div class="sub">البيانات اللي على السيرفر فاضية، بس الموبايل ده عليه نسخة فيها ${arn(d.teachers.length)} مدرس و${arn(ns)} طالب${when?" (آخر تحديث "+esc(when)+")":""}.</div><button class="btn big" onclick="doRecover(this)">رجّعها دلوقتي</button></section>`}
@@ -1468,8 +1480,9 @@ function allStudentsByYear(){const m=payMonth,map={};S.teachers.forEach(t=>{if(!
 function viewStudents(){const map=allStudentsByYear(),keys=YEARS.map(y=>y[0]).filter(k=>map[k]&&map[k].size),total=keys.reduce((a,k)=>a+map[k].size,0);
   if(!yOpen||!map[yOpen])yOpen=keys[0]||"";const L=yOpen?[...map[yOpen].values()].sort((a,b)=>a.s.name.localeCompare(b.s.name,"ar")):[];
   if(yQ)setTimeout(filterYear,0);
-  const rn=reqNew(),sub=`<div class="tabs stabs" role="tablist"><button role="tab" aria-selected="${stab==="all"}" onclick="stab='all';render()">كل الطلبة</button><button role="tab" aria-selected="${stab==="req"}" onclick="stab='req';render()">طلبات التسجيل${rn?` <span class="tbadge num">${arn(rn)}</span>`:""}</button></div>`;
+  const rn=reqNew(),sub=`<div class="tabs stabs" role="tablist"><button role="tab" aria-selected="${stab==="all"}" onclick="stab='all';render()">كل الطلبة</button><button role="tab" aria-selected="${stab==="req"}" onclick="stab='req';render()">طلبات التسجيل${rn?` <span class="tbadge num">${arn(rn)}</span>`:""}</button><button role="tab" aria-selected="${stab==="left"}" onclick="stab='left';render()">اللي سابوا</button></div>`;
   if(stab==="req")return `<div class="ptitle"><h1>الطلبة</h1></div>${peopleTabs("s")}${sub}${viewRequests()}`;
+  if(stab==="left")return `<div class="ptitle"><h1>الطلبة</h1></div>${peopleTabs("s")}${sub}${viewGone()}`;
   return `<div class="ptitle"><h1>الطلبة</h1></div>${peopleTabs("s")}${sub}
   <div class="sub">${arn(total)} طالب في السنتر</div>
   ${keys.length?`<div class="ychips">${keys.map(k=>`<button class="ychip${k===yOpen?" on":""}" onclick="yOpen='${k}';yQ='';render()"><b>${esc(YEARS.find(y=>y[0]===k)[1])}</b><span class="num">${arn(map[k].size)}</span></button>`).join("")}</div>
@@ -1498,7 +1511,7 @@ function todayBox(wd){const L=[];S.teachers.forEach(t=>tActive(t,curMonth())&&(t
   if(!S.teachers.length)return "";
   L.sort((a,b)=>String(a.g.time||"99").localeCompare(String(b.g.time||"99")));const m=curMonth();
   return `<div class="bar" style="justify-content:space-between"><h2>مجاميع النهاردة <span class="sub">${DAYS[wd]}</span></h2><span class="sub">${arn(L.length)} مجموعة</span></div>
-  <div class="list">${L.length?L.map(({t,g})=>{const ml=monthSt(g,m),pd=ml.filter(x=>isPaid(g,x,m)).length,sn=subjectsOf(t).length>1?subOf(t,g).name:"";
+  <div class="list">${L.length?L.map(({t,g})=>{const ml=payable(g,m),pd=ml.filter(x=>isPaid(g,x,m)).length,sn=subjectsOf(t).length>1?subOf(t,g).name:"";
     return `<button class="row tg" onclick="go({view:'group',gid:'${g.id}'})"><span class="tm">${esc(fmtTime(g.time)||"—")}</span><span class="m"><h3>${esc(g.name)}</h3><span class="sub">${esc(t.name)}${sn?" · "+esc(sn):""}</span><span class="tgp"><span class="prog"><i style="width:${ml.length?Math.round(pd/ml.length*100):0}%"></i></span><span class="sub num">دفع ${arn(pd)} من ${arn(ml.length)}</span></span></span><span class="chev">‹</span></button>`}).join("")
     :`<div class="empty">مفيش مجاميع النهاردة.</div>`}</div>`}
 function viewTeacher(){
@@ -1523,7 +1536,7 @@ function viewTeacher(){
     return `<section class="subj"><div class="bar" style="justify-content:space-between"><div><h2>${esc(sub.name||"المجاميع")}</h2>${isOwner()?`<span class="sub">نسبة السنتر: ${shareTxtS(sh)}</span>`:""}</div>
       ${isOwner()?`<div class="bar"><button class="btn ghost" onclick="subEdit='${sub.id}';render()">تعديل</button><button class="btn ghost" onclick="go({view:'addGroup',tid:'${t.id}',sub:'${sub.id}'})">+ مجموعة</button></div>`:`<button class="btn ghost" onclick="go({view:'addGroup',tid:'${t.id}',sub:'${sub.id}'})">+ مجموعة</button>`}</div>
       ${subEdit===sub.id?subForm(t,sub):""}
-      <div class="list">${gs.length?gs.map(g=>{const ml=monthSt(g,payMonth),paid=ml.filter(x=>isPaid(g,x,payMonth)).length;
+      <div class="list">${gs.length?gs.map(g=>{const ml=payable(g,payMonth),paid=ml.filter(x=>isPaid(g,x,payMonth)).length;
         return `<button class="row tg" onclick="openGroup('${g.id}')"><span class="m"><h3>${esc(g.name)}</h3><span class="sub">${daysTxt(g)} · ${fmtTime(g.time)} · ${arn(activeSt(g).length)} طالب</span>
         <span class="tgp"><span class="prog"><i style="width:${ml.length?Math.round(paid/ml.length*100):0}%"></i></span><span class="sub num">دفع ${arn(paid)} من ${arn(ml.length)}</span></span></span>${g.days.includes(wd)?'<span class="pill">النهاردة</span>':''}<span class="chev">‹</span></button>`}).join(""):'<div class="empty">مفيش مجاميع لسه.</div>'}</div></section>`}).join("")}
   ${!subjectsOf(t).length||!isOwner()?"":subEdit==="new"?`<section class="subj">${subForm(t,null)}</section>`:`<button class="btn ghost wide" onclick="subEdit='new';render()">+ مادة أو سنة دراسية تانية للمدرس ده</button>`}
@@ -1544,23 +1557,23 @@ function viewGroup(){if(gQ)setTimeout(filterGroup,0);
   let body="";
   if(tab==="pay"){
     const rec=S.payments[g.id+"|"+payMonth]||{};
-    const paid=st.filter(s=>isPaid(g,s,payMonth)).length,parts=st.filter(s=>isPart(g,s,payMonth)).length;
+    const stP=st.filter(s=>!s.free),paid=stP.filter(s=>isPaid(g,s,payMonth)).length,parts=stP.filter(s=>isPart(g,s,payMonth)).length,nFree=st.length-stP.length;
     body=`<div class="monthnav card sm"><button onclick="shiftMonth(-1)" aria-label="الشهر اللي فات">›</button><div class="mn"><b>${monthName(payMonth)}</b>${payMonth===curMonth()?'<span class="sub">الشهر ده</span>':`<button class="linkbtn" onclick="payMonth=curMonth();render()">ارجع للشهر ده</button>`}</div><button onclick="shiftMonth(1)" aria-label="الشهر الجاي">‹</button></div>
       ${isLocked(t.id,payMonth)?`<div class="note">الشهر ده مقفول عند ${esc(t.name)}. للتعديل افتحه من صفحة المدرس.</div>`:""}
       <div class="stats"><div class="stat"><b style="color:var(--ok)">${arn(paid)}</b><span class="sub">دفع</span></div>
-      <div class="stat"><b style="color:var(--bad)">${arn(st.length-paid)}</b><span class="sub">لسه${parts?` (${arn(parts)} جزء)`:""}</span></div>
+      <div class="stat"><b style="color:var(--bad)">${arn(stP.length-paid)}</b><span class="sub">لسه${parts?` (${arn(parts)} جزء)`:""}${nFree?` · ${arn(nFree)} معفي`:""}</span></div>
       ${isOwner()?`<div class="stat"><b class="num">${st.reduce((a,s)=>a+payAmt(g,s,payMonth),0).toLocaleString("ar-EG")}</b><span class="sub">جنيه اتجمع</span></div>`:""}</div>
-      ${st.length?`<div class="prog big"><i style="width:${Math.round(paid/st.length*100)}%"></i></div>`:""}
+      ${stP.length?`<div class="prog big"><i style="width:${Math.round(paid/stP.length*100)}%"></i></div>`:""}
       ${st.length&&!paid&&!parts?`<div class="hint">${CHK.no.replace('width="26" height="26"','width="20" height="20"')} دوس على الدايرة جنب اسم الطالب عشان تسجّل إنه دفع</div>`:""}
       ${st.length>5?gSearch():""}
-      <div class="list glist">${st.map(s=>{const pd=isPaid(g,s,payMonth),pt=isPart(g,s,payMonth),open=rowOpen===s.id||partEdit===s.id,stt=pd?"ok":pt?"pt":"no";
+      <div class="list glist">${st.map(s=>{const pd=isPaid(g,s,payMonth),pt=isPart(g,s,payMonth),open=rowOpen===s.id||partEdit===s.id,stt=pd?"ok":pt?"pt":s.free?"fr":"no";
         return `<div class="stu srow ${stt}${open?" open":""}" data-q="${stuQ(s)}">
         <button class="paid chk ${pt?"partb":""}" data-sid="${s.id}" aria-pressed="${pd}" onclick="togPay('${s.id}')" aria-label="${pd?"دفع، دوس عشان تلغي":"سجّل إن "+esc(s.name)+" دفع"}">${pd?CHK.ok:pt?CHK.pt:CHK.no}</button>
-        <button class="m linkish" onclick="toggleRow('${s.id}')"><h3>${esc(s.name)}</h3><span class="sub num st-${stt}">${pt?`دفع ${arn(payAmt(g,s,payMonth))} من ${arn(feeOf(g,s))} · باقي ${arn(remaining(g,s,payMonth))}`:pd?`دفع ${arn(payAmt(g,s,payMonth))} ج ✓`:`لسه مادفعش · ${arn(feeOf(g,s))} ج`}${hasCustomFee(s)?' <span class="pill">خاص</span>':""}${s.left?' <span class="pill warnp">اتنقل</span>':""}</span></button>
+        <button class="m linkish" onclick="toggleRow('${s.id}')"><h3>${esc(s.name)}</h3><span class="sub num st-${stt}">${pt?`دفع ${arn(payAmt(g,s,payMonth))} من ${arn(feeOf(g,s))} · باقي ${arn(remaining(g,s,payMonth))}`:pd?`دفع ${arn(payAmt(g,s,payMonth))} ج ✓`:s.free?`معفي من الدفع`:`لسه مادفعش · ${arn(feeOf(g,s))} ج`}${s.free?' <span class="pill freep">معفي</span>':""}${hasCustomFee(s)?' <span class="pill">خاص</span>':""}${s.left?' <span class="pill warnp">اتنقل</span>':""}</span></button>
         <button class="more" onclick="toggleRow('${s.id}')" aria-label="خيارات ${esc(s.name)}" aria-expanded="${open}">${open?"✕":"⋯"}</button>
         ${open?`<div class="sheetbg" onclick="rowOpen=null;partEdit=null;render()"></div><div class="bsheet" role="dialog" aria-label="${esc(s.name)}"><div class="grab"></div>
           <div class="bsh"><span class="bava ${stt}">${pd?CHK.ok:pt?CHK.pt:CHK.no}</span><div class="m"><b>${esc(s.name)}</b><span class="sub st-${stt}">${pt?`دفع ${arn(payAmt(g,s,payMonth))} من ${arn(feeOf(g,s))} · باقي ${arn(remaining(g,s,payMonth))}`:pd?`دفع ${arn(payAmt(g,s,payMonth))} ج ✓`:`لسه مادفعش · ${arn(feeOf(g,s))} ج`}</span></div><button class="more" onclick="rowOpen=null;partEdit=null;render()" aria-label="قفل">✕</button></div>
-          <div class="acts">${pd?"":`<button class="wa act" onclick="openReminder('${g.id}','${s.id}','${payMonth}')">${ic("chat")}<span>تذكير</span></button>`}${hasPay(g,s,payMonth)?`<button class="rcpt act" onclick="openReceipt('${g.id}','${s.id}','${payMonth}')">${ic("receipt")}<span>إيصال</span></button>`:""}${pd?"":`<button class="rcpt act" onclick="partEdit='${s.id}';render()">${ic("half")}<span>${pt?"تعديل الجزء":"دفع جزء"}</span></button>`}<button class="act" onclick="openStudent('${s.id}')">${ic("user")}<span>بياناته</span></button></div>
+          <div class="acts">${pd||s.free?"":`<button class="wa act" onclick="openReminder('${g.id}','${s.id}','${payMonth}')">${ic("chat")}<span>تذكير</span></button>`}${hasPay(g,s,payMonth)?`<button class="rcpt act" onclick="openReceipt('${g.id}','${s.id}','${payMonth}')">${ic("receipt")}<span>إيصال</span></button>`:""}${pd?"":`<button class="rcpt act" onclick="partEdit='${s.id}';render()">${ic("half")}<span>${pt?"تعديل الجزء":"دفع جزء"}</span></button>`}<button class="act" onclick="openStudent('${s.id}')">${ic("user")}<span>بياناته</span></button></div>
         ${partEdit===s.id?`<form class="partform" onsubmit="savePart(event,'${g.id}','${s.id}')"><label class="lbl" for="partAmt">دفع كام من ${arn(feeOf(g,s))}؟</label><input id="partAmt" type="number" inputmode="numeric" min="0" value="${pt?payAmt(g,s,payMonth):""}" placeholder="100"><button class="btn">حفظ</button><button type="button" class="btn ghost" onclick="partEdit=null;render()">إلغاء</button></form>`:""}</div>`:""}</div>`}).join("")||noStu()}</div>`;
   } else {
     const others=[];S.teachers.forEach(tt=>(tt.groups||[]).forEach(gg=>{if(gg.id!==g.id)others.push({t:tt,g:gg})}));
@@ -1728,7 +1741,7 @@ async function buildBackupPNG(){
   const monthName=MONTHS[mm-1]+" "+yy.toLocaleString("ar-EG",{useGrouping:false});
   // numbers
   let G=0,STU=0,PAID=0,MONEY=0;
-  const secs=S.teachers.map(t=>{const gs=(t.groups||[]).map(g=>{const ml=monthSt(g,m),n=ml.length,ps=ml.filter(x=>isPaid(g,x,m)),p=ps.length,mo=ml.reduce((a,x)=>a+payAmt(g,x,m),0);G++;STU+=n;PAID+=p;MONEY+=mo;return{g,n,p,mo}});return{t,gs}});
+  const secs=S.teachers.map(t=>{const gs=(t.groups||[]).map(g=>{const ml=payable(g,m),n=ml.length,ps=ml.filter(x=>isPaid(g,x,m)),p=ps.length,mo=ml.reduce((a,x)=>a+payAmt(g,x,m),0);G++;STU+=n;PAID+=p;MONEY+=mo;return{g,n,p,mo}});return{t,gs}});
   // layout heights
   const HEAD=300, TOP=HEAD+250+190, RH=62, SEC_HEAD=80, COL_H=50, GAP=28;
   let bodyH=0;secs.forEach(s=>{bodyH+=SEC_HEAD+COL_H+RH*Math.max(1,s.gs.length)+16+GAP});
@@ -1858,7 +1871,7 @@ function teacherReportBox(t){
 function closingText(t,m){return fillTpl(getTpl("closing"),closeVars(t,m))}
 function closingDetailText(t,m){const a=teacherMonth(t,m),P=getPayout(t.id,m),L=getLock(t.id,m);
   const lines=[`تقفيلة شهر ${monthName(m)} — ${BRAND.name}`,`${t.name}${subNames(t)?" · "+subNames(t):""}`,""],multiS=subjectsOf(t).length>1;
-  (t.groups||[]).forEach(g=>{const ml=monthSt(g,m),ps=ml.filter(x=>isPaid(g,x,m)),pp=ml.filter(x=>isPart(g,x,m));lines.push(`• ${multiS?subOf(t,g).name+" — ":""}${g.name}: دفع ${arn(ps.length)} من ${arn(ml.length)}${pp.length?` + ${arn(pp.length)} جزء`:""} — ${arn(ml.reduce((q,x)=>q+payAmt(g,x,m),0))} ج`)});
+  (t.groups||[]).forEach(g=>{const ml=payable(g,m),ps=ml.filter(x=>isPaid(g,x,m)),pp=ml.filter(x=>isPart(g,x,m));lines.push(`• ${multiS?subOf(t,g).name+" — ":""}${g.name}: دفع ${arn(ps.length)} من ${arn(ml.length)}${pp.length?` + ${arn(pp.length)} جزء`:""} — ${arn(ml.reduce((q,x)=>q+payAmt(g,x,m),0))} ج`)});
   if(multiS)a.subs.forEach(r=>lines.push(`${r.sub.name}: محصّل ${arn(r.collected)} ج · للسنتر ${arn(r.center)} ج (${shareTxtS(effShare(t,r.sub,m))})`));
   lines.push("",`إجمالي المحصّل: ${arn(a.collected)} ج`,multiS?`نصيب السنتر: ${arn(a.center)} ج`:`نسبة السنتر (${shareTxt(t,m)}): ${arn(a.center)} ج`,`صافي المدرس: ${arn(a.teacher)} ج`);
   if(P)lines.push(`✓ اتسلّم ${arn(P.amount)} ج يوم ${fmtDay(P.date)}`);
@@ -1878,7 +1891,7 @@ async function buildTeacherPNG(t,m){
   const C={bg:"#F4F4F6",card:"#FFFFFF",ink:"#141417",muted:"#6E6E77",line:"#E3E3E8",red:BRAND.accent,redS:BRAND.accentSoft,black:BRAND.dark,ok:"#1E8A57",okS:"#E3F4EA",warn:"#B7791F",warnS:"#FBF1DF",bad:"#C2413A"};
   const MONTHS=["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
   const [yy,mm]=m.split("-").map(Number),monthName=MONTHS[mm-1]+" "+yy.toLocaleString("ar-EG",{useGrouping:false});
-  const gs=(t.groups||[]).map(g=>{const st=monthSt(g,m).map(s=>({s,paid:isPaid(g,s,m),part:isPart(g,s,m),amt:payAmt(g,s,m),...monthAttFor(g,s.id,m)}));
+  const gs=(t.groups||[]).map(g=>{const st=monthSt(g,m).filter(s=>!s.free||hasPay(g,s,m)).map(s=>({s,paid:isPaid(g,s,m),part:isPart(g,s,m),amt:payAmt(g,s,m),...monthAttFor(g,s.id,m)}));
     const ses=st.length?Math.max(...st.map(q=>q.ses)):monthAttFor(g,"",m).ses;const p=st.filter(q=>q.paid).length;return{g,st,ses,p,mo:st.reduce((a,q)=>a+q.amt,0)}});
   const STU=gs.reduce((a,q)=>a+q.st.length,0),PAID=gs.reduce((a,q)=>a+q.p,0),MONEY=gs.reduce((a,q)=>a+q.mo,0);
   const AC=teacherMonth(t,m),MS=subjectsOf(t).length>1,SUBH=MS?96+AC.subs.length*64+40:0;const HEAD=240,CLOSE_Y=HEAD+258+190,TOP=CLOSE_Y+282+SUBH,RH=56,GH=96,CH=48,GAP=28;
@@ -1987,7 +2000,7 @@ async function buildTeacherPDF(t,m){
    items.forEach((k,i)=>{const cx=MR-w*i-w/2;if(i){x.fillStyle=C.line;x.fillRect(MR-w*i,y+20,2,60)}x.textAlign="center";x.fillStyle=C.muted;x.font="500 20px "+F2;x.fillText(k[0],cx,y+38);x.fillStyle=i===3?C.red:i===4?C.ok:C.ink;x.font="700 28px "+F1;x.fillText(k[1],cx,y+78)});y+=130}
   const groups=(t.groups||[]);
   if(!groups.length){x.textAlign="center";x.fillStyle=C.muted;x.font="500 28px "+F2;x.fillText("مفيش مجاميع للمدرس ده",W/2,y+60)}
-  groups.forEach(g=>{const st=monthSt(g,m),p=st.filter(s2=>isPaid(g,s2,m)).length,mo=st.reduce((a,s2)=>a+payAmt(g,s2,m),0);
+  groups.forEach(g=>{const st=payable(g,m),p=st.filter(s2=>isPaid(g,s2,m)).length,mo=st.reduce((a,s2)=>a+payAmt(g,s2,m),0);
     need(GH+TH+RH);groupHead(g,st,p,mo,false);tableHead();
     if(!st.length){x.textAlign="center";x.fillStyle=C.muted;x.font="500 22px "+F2;x.fillText("مفيش طلاب في الشهر ده",W/2,y+34);y+=RH}
     st.forEach((s2,i)=>{if(y+RH>H-FOOT){newPage();groupHead(g,st,p,mo,true);tableHead()}
@@ -2087,7 +2100,7 @@ function searchHTML(q){
     if(hit){const k=personKey(s);if(!map.has(k))map.set(k,[]);map.get(k).push(e)}});
   if(!map.size)return '<div class="empty">مفيش طالب بالاسم ده.</div>';
   const m=todayISO().slice(0,7);
-  return '<div class="list">'+[...map.entries()].slice(0,30).map(([k,es])=>{const s=es[0].s;const unpaid=es.filter(e=>!isPaid(e.g,e.s,m)).length;
+  return '<div class="list">'+[...map.entries()].slice(0,30).map(([k,es])=>{const s=es[0].s;const unpaid=es.filter(e=>!e.s.free&&!isPaid(e.g,e.s,m)).length;
     return `<button class="row" onclick="openStudentKey('${encodeURIComponent(k)}')"><span class="m"><h3>${esc(s.name)}</h3><span class="sub">${[...new Set(es.map(e=>e.t.name))].map(esc).join(" · ")} · ${arn(es.length)} ${es.length>1?"مجاميع":"مجموعة"}</span></span>${unpaid?`<span class="pill warnp">لسه ${arn(unpaid)}</span>`:'<span class="pill">دفع ✓</span>'}<span class="chev">‹</span></button>`}).join("")+'</div>';
 }
 function doSearch(v){searchQ=v;const r=document.getElementById("searchResults");if(r)r.innerHTML=searchHTML(v)}
@@ -2121,19 +2134,54 @@ function viewStudent(){
   <h2>المجاميع</h2>
   <div class="list">${es.map(e=>{const on=isPaid(e.g,e.s,m);
     const pt=isPart(e.g,e.s,m),stt=on?"ok":pt?"pt":"no";
-    return `<div class="form sgc ${stt}"><div class="sgh"><button class="paid chk ${pt?"partb":""}" aria-pressed="${on}" onclick="togPayFor('${e.g.id}','${e.s.id}')" aria-label="${on?"دفع":"سجّل الدفع"}">${on?CHK.ok:pt?CHK.pt:CHK.no}</button><button class="m linkish" onclick="openGroup('${e.g.id}')"><h3>${esc(e.g.name)}</h3><span class="sub">${esc(e.t.name)} · ${daysTxt(e.g)} · ${fmtTime(e.g.time)}</span><span class="sub st-${stt}">${pt?`دفع ${arn(payAmt(e.g,e.s,m))} من ${arn(feeOf(e.g,e.s))} · باقي ${arn(remaining(e.g,e.s,m))} ج`:on?`دفع ${arn(payAmt(e.g,e.s,m))} ج ✓`:`لسه مادفعش · ${arn(feeOf(e.g,e.s))} ج`}${hasCustomFee(e.s)?` · <b>سعر خاص</b>`:""}</span></button></div>
-      <div class="acts inl">${on?"":`<button class="wa act" onclick="openReminder('${e.g.id}','${e.s.id}','${m}')">${ic("chat")}<span>تذكير</span></button>`}${hasPay(e.g,e.s,m)?`<button class="rcpt act" onclick="openReceipt('${e.g.id}','${e.s.id}','${m}')">${ic("receipt")}<span>إيصال</span></button>`:""}${on?"":`<button class="rcpt act" onclick="partEdit='${e.s.id}';render()">${ic("half")}<span>${pt?"تعديل الجزء":"دفع جزء"}</span></button>`}</div>
+    return `<div class="form sgc ${stt}${e.s.free?" fr":""}"><div class="sgh"><button class="paid chk ${pt?"partb":""}" aria-pressed="${on}" onclick="togPayFor('${e.g.id}','${e.s.id}')" aria-label="${on?"دفع":"سجّل الدفع"}">${on?CHK.ok:pt?CHK.pt:CHK.no}</button><button class="m linkish" onclick="openGroup('${e.g.id}')"><h3>${esc(e.g.name)}</h3><span class="sub">${esc(e.t.name)} · ${daysTxt(e.g)} · ${fmtTime(e.g.time)}</span><span class="sub st-${stt}">${pt?`دفع ${arn(payAmt(e.g,e.s,m))} من ${arn(feeOf(e.g,e.s))} · باقي ${arn(remaining(e.g,e.s,m))} ج`:on?`دفع ${arn(payAmt(e.g,e.s,m))} ج ✓`:e.s.free?`معفي من الدفع`:`لسه مادفعش · ${arn(feeOf(e.g,e.s))} ج`}${hasCustomFee(e.s)?` · <b>سعر خاص</b>`:""}${isOwner()&&e.s.cshare?` · ${esc(stuShareTxt(e.s.cshare))}`:""}</span></button></div>
+      <div class="acts inl">${on||e.s.free?"":`<button class="wa act" onclick="openReminder('${e.g.id}','${e.s.id}','${m}')">${ic("chat")}<span>تذكير</span></button>`}${hasPay(e.g,e.s,m)?`<button class="rcpt act" onclick="openReceipt('${e.g.id}','${e.s.id}','${m}')">${ic("receipt")}<span>إيصال</span></button>`:""}${on?"":`<button class="rcpt act" onclick="partEdit='${e.s.id}';render()">${ic("half")}<span>${pt?"تعديل الجزء":"دفع جزء"}</span></button>`}</div>
       ${partEdit===e.s.id?`<form class="partform" onsubmit="savePart(event,'${e.g.id}','${e.s.id}')"><label class="lbl" for="partAmt">دفع كام من ${arn(feeOf(e.g,e.s))}؟</label><input id="partAmt" type="number" inputmode="numeric" min="0" value="${pt?payAmt(e.g,e.s,m):""}"><button class="btn">حفظ</button><button type="button" class="btn ghost" onclick="partEdit=null;render()">إلغاء</button></form>`:""}
       <div class="months">${months.slice().reverse().map(mm=>{const ok=isPaid(e.g,e.s,mm),pt=isPart(e.g,e.s,mm);return `<span class="mchip ${ok?"ok":pt?"part":""}">${MONTHS_AR[+mm.slice(5)-1]}</span>`}).join("")}</div>
-      ${isOwner()?`<details class="sgset" ${sgOpen.has(e.s.id)?"open":""} ontoggle="this.open?sgOpen.add('${e.s.id}'):sgOpen.delete('${e.s.id}')"><summary>${ic("settings")}<span>السعر وتاريخ البداية</span></summary><form class="joinform" onsubmit="setStuJoined(event,'${e.g.id}','${e.s.id}')"><label class="lbl" for="jn-${e.s.id}">بدأ من شهر</label>
+      ${isOwner()?`<details class="sgset" ${sgOpen.has(e.s.id)?"open":""} ontoggle="this.open?sgOpen.add('${e.s.id}'):sgOpen.delete('${e.s.id}')"><summary>${ic("settings")}<span>السعر ونصيب السنتر وتاريخ البداية</span></summary>
+      <div class="kv freerow"><span><b>معفي من الدفع</b><span class="sub"> مش بيدفع خالص: مش هيظهر في «مادفعش» ومفيش عليه نسبة</span></span><button type="button" class="switch ${e.s.free?"on":""}" role="switch" aria-checked="${!!e.s.free}" aria-label="معفي من الدفع" onclick="setFree('${e.g.id}','${e.s.id}')"><i></i></button></div>
+      <form class="csform" onsubmit="saveCShare(event,'${e.g.id}','${e.s.id}')"><label class="lbl" for="cst-${e.s.id}">نصيب السنتر من الطالب ده</label>
+        <div class="bar"><select id="cst-${e.s.id}" onchange="document.getElementById('csv-${e.s.id}').hidden=!(this.value==='fixed'||this.value==='pct')">
+          <option value=""${!e.s.cshare?" selected":""}>زي المجموعة (${esc(shareTxtS(shareOfSub(subOf(e.t,e.g))))})</option>
+          <option value="fixed"${e.s.cshare&&e.s.cshare.type==="fixed"?" selected":""}>مبلغ بالجنيه</option>
+          <option value="pct"${e.s.cshare&&e.s.cshare.type==="pct"?" selected":""}>نسبة ٪ من اللي دفعه</option>
+          <option value="none"${e.s.cshare&&e.s.cshare.type==="none"?" selected":""}>السنتر مش هياخد منه</option></select>
+        <input id="csv-${e.s.id}" type="number" inputmode="numeric" min="0" placeholder="المبلغ أو النسبة" value="${e.s.cshare&&e.s.cshare.type!=="none"?esc(e.s.cshare.value):""}"${e.s.cshare&&(e.s.cshare.type==="fixed"||e.s.cshare.type==="pct")?"":" hidden"} style="max-width:130px"><button class="btn ghost">حفظ</button></div>
+        <div class="sub">للطالب اللي بيدفع جزء أو ليه خصم. الشهور المقفولة مش بتتغير.</div></form><form class="joinform" onsubmit="setStuJoined(event,'${e.g.id}','${e.s.id}')"><label class="lbl" for="jn-${e.s.id}">بدأ من شهر</label>
         <input id="jn-${e.s.id}" type="month" value="${esc(e.s.joined||"")}"><button class="btn ghost">حفظ</button></form>
       <form class="feeform" onsubmit="saveFee(event,'${e.g.id}','${e.s.id}')"><label class="lbl" for="fee-${e.s.id}">اشتراكه هنا</label>
         <input id="fee-${e.s.id}" type="number" inputmode="numeric" min="0" placeholder="${esc(e.g.fee)}" value="${hasCustomFee(e.s)?esc(e.s.fee):""}">
         <button class="btn ghost">حفظ</button>${hasCustomFee(e.s)?`<button type="button" class="x" onclick="clearFee('${e.g.id}','${e.s.id}')">سعر المجموعة</button>`:""}</form></details>`:""}</div>`}).join("")}</div>
+  ${isOwner()?`<section class="form leavebox"><h2>الطالب ساب؟</h2>
+    <div class="bar"><button class="btn ghost" onclick="stuLeave(this)">ساب السنتر</button><button class="btn delbtn" onclick="stuPurge(this)">مسح نهائي</button></div>
+    <div class="sub">«ساب السنتر»: بيختفي من المجاميع و«مادفعش»، وبياناته وفلوسه القديمة بتفضل محفوظة في «اللي سابوا» وتقدر ترجّعه. «مسح نهائي»: بيتمسح هو وكل دفعه من كل الشهور.</div></section>`:""}
   ${(()=>{const old=allEntriesIncl().filter(x=>x.s.left&&personKey(x.s)===nav.key);if(!old.length)return "";
     return `<h2>مجاميع كان فيها</h2><div class="list">${old.map(e=>`<div class="form"><h3>${esc(e.g.name)}</h3><span class="sub">${esc(e.t.name)} · لحد ${MONTHS_AR[(+e.s.left.slice(5)+10)%12]}</span>
       <div class="months">${months.slice().reverse().filter(mm=>mm<e.s.left).map(mm=>`<span class="mchip ${isPaid(e.g,e.s,mm)?"ok":isPart(e.g,e.s,mm)?"part":""}">${MONTHS_AR[+mm.slice(5)-1]}</span>`).join("")}</div></div>`).join("")}</div>`})()}`;
 }
+function setFree(gid,sid){const f=findGroup(gid);const x=f&&(f.g.students||[]).find(y=>y.id===sid);if(!x)return;if(x.free)delete x.free;else x.free=true;save();flash(x.free?"«"+x.name+"» بقى معفي من الدفع":"«"+x.name+"» رجع يدفع عادي");render()}
+function saveCShare(ev,gid,sid){ev.preventDefault();const f=findGroup(gid);const x=f&&(f.g.students||[]).find(y=>y.id===sid);if(!x)return;const ty=document.getElementById("cst-"+sid).value,v=+document.getElementById("csv-"+sid).value;
+  if(!ty)delete x.cshare;else if(ty==="none")x.cshare={type:"none",value:0};else{if(!(v>0)){flash(ty==="pct"?"اكتب النسبة":"اكتب المبلغ");render();return}if(ty==="pct"&&v>100){flash("النسبة لازم تكون ١٠٠ أو أقل");render();return}x.cshare={type:ty,value:v}}
+  teacherImg=null;save();flash("اتحفظ ✓ "+(x.cshare?stuShareTxt(x.cshare):"زي المجموعة"));render()}
+function stuLeave(btn){twice("leave",()=>{const es=personEntries(nav.key);if(!es.length)return;const m0=curMonth();
+  es.forEach(e=>{const keep=hasPay(e.g,e.s,m0)||isLocked(e.t.id,m0);e.s.left=keep?addMonth(m0,1):m0;e.s.gone=m0;
+    Object.keys(S.payments).forEach(k=>{if(!k.startsWith(e.g.id+"|"))return;const mm=k.slice(e.g.id.length+1);if(mm>=e.s.left&&!isLocked(e.t.id,mm)&&S.payments[k])delete S.payments[k][e.s.id]})});
+  const nm=es[0].s.name;save();flash("✓ «"+nm+"» ساب السنتر. بياناته في الطلبة ← «اللي سابوا»");stab="left";go({view:"students"})},btn)}
+function personAll(key){return allEntriesIncl().filter(e=>personKey(e.s)===key)}
+function stuPurge(btn,key){key=key||nav.key;const es=personAll(key);if(!es.length)return;
+  const lockedPay=es.some(e=>Object.keys(S.payments).some(k=>{if(!k.startsWith(e.g.id+"|"))return false;const mm=k.slice(e.g.id.length+1);return hasPayV((S.payments[k]||{})[e.s.id])&&isLocked(e.t.id,mm)}));
+  if(lockedPay){flash("الطالب ليه فلوس في شهر مقفول، فمينفعش يتمسح. استخدم «ساب السنتر» وبياناته هتتحفظ.");render();return}
+  twice("purge"+key,()=>{const nm=es[0].s.name;es.forEach(e=>{Object.keys(S.payments).forEach(k=>{if(k.startsWith(e.g.id+"|")&&S.payments[k])delete S.payments[k][e.s.id]});e.g.students=(e.g.students||[]).filter(y=>y.id!==e.s.id)});
+    save();flash("«"+nm+"» اتمسح نهائي");if(nav.view==="student")go({view:"students"});else render()},btn)}
+function goneList(){const by=new Map();allEntriesIncl().forEach(e=>{if(!e.s.gone)return;const k=personKey(e.s);if(personEntries(k).length)return;const o=by.get(k);if(!o||(e.s.left||"")>(o.s.left||""))by.set(k,e)});return [...by.entries()].sort((a,b)=>(b[1].s.gone||"").localeCompare(a[1].s.gone||""))}
+function stuBack(key,btn){const L=goneList().find(([k])=>k===key);if(!L)return;const e=L[1],m0=curMonth();
+  if(!findGroup(e.g.id)){flash("المجموعة بتاعته اتمسحت. ضيفه في مجموعة تانية.");render();return}
+  e.g.students=e.g.students||[];const n={id:uid(),name:e.s.name,mobile:e.s.mobile||"",phone:e.s.phone||"",joined:m0};if(hasCustomFee(e.s))n.fee=e.s.fee;if(e.s.cshare)n.cshare=e.s.cshare;if(e.s.free)n.free=true;
+  personAll(key).forEach(x=>{delete x.s.gone});e.g.students.push(n);save();flash("«"+n.name+"» رجع لمجموعة "+e.g.name+" ✓");render()}
+function viewGone(){const L=goneList();if(!L.length)return `<div class="empty">مفيش طلبة سابوا السنتر.</div>`;
+  return `<div class="sub">${arn(L.length)} طالب ساب. بياناتهم وفلوسهم القديمة محفوظة.</div><div class="list">${L.map(([k,e])=>`<div class="form gonec"><div class="m"><h3>${esc(e.s.name)}</h3><span class="sub">${esc(e.t.name)} · ${esc(e.g.name)} · ساب في ${esc(monthName(e.s.gone))}</span>
+    <span class="sub num" dir="ltr">${[e.s.mobile,e.s.phone].filter(Boolean).map(esc).join(" · ")}</span></div>
+    <div class="bar">${waNumber(e.s.phone)||waNumber(e.s.mobile)?`<a class="btn ghost sm" href="https://wa.me/${waNumber(e.s.phone)||waNumber(e.s.mobile)}" target="_blank" rel="noopener">واتساب</a>`:""}${isOwner()?`<button class="btn sm" onclick="stuBack('${esc(k)}',this)">رجّعه</button><button class="x" onclick="stuPurge(this,'${esc(k)}')">مسح نهائي</button>`:""}</div></div>`).join("")}</div>`}
 function saveFee(ev,gid,sid){ev.preventDefault();const f=findGroup(gid);const st=f&&(f.g.students||[]).find(x=>x.id===sid);if(!st)return;
   const v=document.getElementById("fee-"+sid).value.trim();if(v===""||+v===+f.g.fee)delete st.fee;else st.fee=Math.max(0,+v||0);const m=curMonth();if(isPaid(f.g,st,m))setPaid(f.g,st,m,true);save();render()}
 function clearFee(gid,sid){const f=findGroup(gid);const st=f&&(f.g.students||[]).find(x=>x.id===sid);if(st){delete st.fee;const m=curMonth();if(isPaid(f.g,st,m))setPaid(f.g,st,m,true);save();render()}}
@@ -2278,7 +2326,7 @@ function closeBox(t,a){
     :`<button class="btn ghost" onclick="lockMonth('${t.id}')">قفل الشهر</button>`;
   return `<div class="closebox">${payout}${lock}</div>`;
 }
-function lockMonth(tid){const t=findTeacher(tid);if(!t)return;const shares={};subjectsOf(t).forEach(x=>shares[x.id]=shareOfSub(x));S.locks[tid+"|"+payMonth]={at:new Date().toISOString(),share:shareOf(t),shares};teacherImg=null;save();render()}
+function lockMonth(tid){const t=findTeacher(tid);if(!t)return;const shares={};subjectsOf(t).forEach(x=>shares[x.id]=shareOfSub(x));const sx={};(t.groups||[]).forEach(g=>(g.students||[]).forEach(x=>{const c=x.cshare;if(c&&c.type)sx[g.id+"|"+x.id]={type:c.type,value:+c.value||0}}));S.locks[tid+"|"+payMonth]={at:new Date().toISOString(),share:shareOf(t),shares,sx};teacherImg=null;save();render()}
 function unlockMonth(tid,btn){twice("ul"+tid,()=>{delete S.locks[tid+"|"+payMonth];teacherImg=null;save();render()},btn)}
 function payTeacher(e,tid){e.preventDefault();const v=Math.max(0,+document.getElementById("poAmt").value||0);S.payouts[tid+"|"+payMonth]={amount:v,date:new Date().toISOString()};teacherImg=null;save();render()}
 function undoPayout(tid){delete S.payouts[tid+"|"+payMonth];teacherImg=null;save();render()}
@@ -2287,7 +2335,7 @@ var flashMsg="",flashUntil=0;
 function flash(msg){flashMsg=msg;flashUntil=Date.now()+4500;setTimeout(()=>{const b=document.getElementById("flashBar");if(b&&Date.now()>=flashUntil)b.remove()},4600)}
 function flashBar(){return flashMsg&&Date.now()<flashUntil?`<div id="flashBar" class="flash${/✓/.test(flashMsg)?" okf":""}">${esc(flashMsg)}</div>`:""}
 
-function unpaidList(m){const out=[];S.teachers.forEach(t=>(t.groups||[]).forEach(g=>monthSt(g,m).forEach(x=>{if(!isPaid(g,x,m))out.push({t,g,s:x})})));return out}
+function unpaidList(m){const out=[];S.teachers.forEach(t=>(t.groups||[]).forEach(g=>payable(g,m).forEach(x=>{if(!isPaid(g,x,m))out.push({t,g,s:x})})));return out}
 function waNumber(n){let d=digits(n);if(d.startsWith("00"))d=d.slice(2);if(d.length===11&&d.startsWith("01"))d="2"+d;else if(d.length===10&&d.startsWith("1"))d="20"+d;return d.length>=11?d:""}
 function reminderText(e,m){return fillTpl(getTpl("reminder"),tplVars(e.t,e.g,e.s,m))}
 function viewUnpaid(){if(upQ)setTimeout(filterUnpaid,0);
